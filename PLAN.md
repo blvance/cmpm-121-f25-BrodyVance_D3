@@ -56,7 +56,7 @@ Key edge cases
 Development tasks (minimal, ordered)
 
 1. Project scaffolding and contracts (small README update). Create clear constants for classroom lat/lng and grid cell size (0.0001° default).
-2. Replace `src/main.ts` content (per assignment tip) with a fresh entry that:
+2. Replace `src/main.ts` content with a fresh entry that:
    - Initializes Leaflet centered on the classroom location with a simple basemap.
    - Implements a cell index conversion: (lat, lng) -> (cellX, cellY) integer pair using floor(lat / cellSize), floor(lng / cellSize) or an equivalent stable mapping.
    - Renders a semi-transparent grid covering the visible map area using Leaflet Layer or canvas overlay so cells appear to tile to the map edges.
