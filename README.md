@@ -1,3 +1,3 @@
 # CMPM 121 D3 Project
 
-This is the starting point for your CMPM 121 D3 project. Students should make sure to remove _this_ content from their README.md file and replace it with their own project documentation.
+Created the PLAN.md file and duplicated main file original code into reference.ts and then deleted all code in the main file.
