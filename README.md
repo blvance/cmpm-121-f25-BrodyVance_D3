@@ -15,3 +15,19 @@ Created the PLAN.md file and duplicated main file original code into reference.t
   - Small hover/highlight behavior and a short notification system for events like crafting a target value.
   - Debug helpers exposed to the runtime (`globalThis._modifiedCells`, `globalThis._getCellToken`) to inspect current in-memory modifications.
   - TypeScript/lint fixes applied (no `any`, `dashArray` set to `undefined` to satisfy Leaflet typings).
+
+- Fixing Code Smells in D3.a
+    Magic Numbers → Constants: Extracted all hardcoded values (colors, opacity, weights, durations) into named constants at the top. Makes maintenance and tuning much easier.
+
+- Extracted Helper Functions (reduced duplication and improved readability):
+    removeCellLayer(): Centralizes layer removal logic instead of repeating it
+    getCellBounds(): Handles lat/lng→bounds conversion
+    getCellVisuals(): Decouples cell styling logic
+    applyCellHoverStyle(): Encapsulates hover state management
+
+- Improved Variable Naming:
+  n → notification (more descriptive)
+  Removed unhelpful comments
+  Removed Unnecessary Array Conversion: Changed Array.from(cellLayers.keys()) to just cellLayers.keys() for iteration (minor but cleaner).
+  Better Code Organization: Constants are grouped, helper functions are placed logically near where they're used, and similar operations are consolidated.
+  

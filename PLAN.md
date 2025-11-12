@@ -109,3 +109,12 @@ Testing and verification
       6. Verify grid lines and per-cell visuals render correctly under common zoom levels.
 
 - Small unit tests (optional): test cell coordinate conversion and a handful of deterministic luck outputs for fixed coords and seed.
+
+Code Smells and Clean up
+
+- Don't change the games gameplay features, just ensure code quality is good
+      1. Free of distracting smells
+      2. Problematic repition
+      3. Remove debbugging code
+
+- Check deployment after cleaning code

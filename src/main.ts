@@ -37,8 +37,25 @@ const CLASSROOM_LATLNG = leaflet.latLng(
 // Gameplay constants
 const GAMEPLAY_ZOOM_LEVEL = 19;
 const TILE_DEGREES = 1e-4; // cell size in degrees ~ size of a house
-const INTERACT_RADIUS = 100; // in cells (Chebyshev distance)
+const INTERACT_RADIUS = 30; // in cells (Chebyshev distance)
 const TARGET_VALUE = 8; // value to trigger notification
+
+// Visual constants (extracted magic numbers)
+const TOKEN_SPAWN_THRESHOLD = 0.96;
+const TOKEN_VALUE_16_THRESHOLD = 0.997;
+const TOKEN_VALUE_8_THRESHOLD = 0.99;
+const TOKEN_VALUE_4_THRESHOLD = 0.975;
+const CELL_FILL_OPACITY_WITH_TOKEN = 0.35;
+const CELL_FILL_OPACITY_EMPTY = 0.06;
+const CELL_COLOR_WITH_TOKEN = "#2a9d8f";
+const CELL_COLOR_EMPTY = "#aaa";
+const CELL_COLOR_INVALID = "#e76f51";
+const CELL_WEIGHT_IN_RANGE = 2;
+const CELL_WEIGHT_OUT_OF_RANGE = 1;
+const CELL_WEIGHT_HOVER = 3;
+const CELL_DASH_OUT_OF_RANGE = "3";
+const FLASH_DURATION_MS = 300;
+const NOTIFICATION_DURATION_MS = 2500;
 
 /* -----------------------
    Map initialization
@@ -100,12 +117,11 @@ function cellKey(i: number, j: number): CellKey {
 function initialTokenForCell(i: number, j: number): Token {
   // Deterministic pseudo-random per cell
   const r = luck([i, j, "token"].toString()); // 0..1
-  // Tune thresholds for reasonable spawn density
-  if (r < 0.96) return null; // 4% chance of token
+  if (r < TOKEN_SPAWN_THRESHOLD) return null; // no token
   // Map rarer values to higher r
-  if (r > 0.997) return { value: 16 };
-  if (r > 0.99) return { value: 8 };
-  if (r > 0.975) return { value: 4 };
+  if (r > TOKEN_VALUE_16_THRESHOLD) return { value: 16 };
+  if (r > TOKEN_VALUE_8_THRESHOLD) return { value: 8 };
+  if (r > TOKEN_VALUE_4_THRESHOLD) return { value: 4 };
   return { value: 2 };
 }
 
@@ -146,11 +162,9 @@ function drawVisibleGrid() {
       visibleKeys.add(cellKey(i, j));
     }
   }
-  for (const key of Array.from(cellLayers.keys())) {
+  for (const key of cellLayers.keys()) {
     if (!visibleKeys.has(key)) {
-      const layer = cellLayers.get(key)!;
-      map.removeLayer(layer);
-      cellLayers.delete(key);
+      removeCellLayer(key);
     }
   }
 
@@ -164,31 +178,19 @@ function drawVisibleGrid() {
 
 function drawOrUpdateCell(i: number, j: number) {
   const key = cellKey(i, j);
-
-  // If layer exists, remove it (we'll recreate with up-to-date visuals).
-  if (cellLayers.has(key)) {
-    const old = cellLayers.get(key)!;
-    map.removeLayer(old);
-    cellLayers.delete(key);
-  }
+  removeCellLayer(key);
 
   // Compute bounds for this cell
-  const south = i * TILE_DEGREES;
-  const west = j * TILE_DEGREES;
-  const bounds = leaflet.latLngBounds(
-    [south, west],
-    [south + TILE_DEGREES, west + TILE_DEGREES],
-  );
+  const bounds = getCellBounds(i, j);
 
   // Determine token and style
   const token = getCellToken(i, j);
   const inRange = isInRange(i, j);
-  const fillOpacity = token ? 0.35 : 0.06;
-  const color = token ? "#2a9d8f" : "#aaa";
+  const { color, fillOpacity } = getCellVisuals(token, inRange);
 
   const rect = leaflet.rectangle(bounds, {
     color,
-    weight: inRange ? 2 : 1,
+    weight: inRange ? CELL_WEIGHT_IN_RANGE : CELL_WEIGHT_OUT_OF_RANGE,
     fillOpacity,
     interactive: true,
   });
@@ -203,26 +205,15 @@ function drawOrUpdateCell(i: number, j: number) {
       className: "cell-label",
     });
   } else {
-    // ensure no tooltip for empty
     rect.unbindTooltip?.();
   }
 
   // Clickable handler
-  rect.on("click", () => {
-    onCellClick(i, j);
-  });
+  rect.on("click", () => onCellClick(i, j));
 
-  // simple hover effect for in-range hints
-  rect.on("mouseover", () => {
-    if (isInRange(i, j)) {
-      rect.setStyle({ weight: 3 });
-    } else {
-      rect.setStyle({ weight: 1, dashArray: "3" });
-    }
-  });
-  rect.on("mouseout", () => {
-    rect.setStyle({ weight: isInRange(i, j) ? 2 : 1, dashArray: undefined });
-  });
+  // Hover effects for in-range hints
+  rect.on("mouseover", () => applyCellHoverStyle(rect, inRange, true));
+  rect.on("mouseout", () => applyCellHoverStyle(rect, inRange, false));
 
   cellLayers.set(key, rect);
 }
@@ -231,6 +222,51 @@ function updateInventoryUI() {
   statusPanelDiv.innerText = inventory
     ? `Inventory: ${inventory.value}`
     : "Inventory: empty";
+}
+
+function removeCellLayer(key: CellKey) {
+  if (cellLayers.has(key)) {
+    const layer = cellLayers.get(key)!;
+    map.removeLayer(layer);
+    cellLayers.delete(key);
+  }
+}
+
+function getCellBounds(i: number, j: number): leaflet.LatLngBounds {
+  const south = i * TILE_DEGREES;
+  const west = j * TILE_DEGREES;
+  return leaflet.latLngBounds(
+    [south, west],
+    [south + TILE_DEGREES, west + TILE_DEGREES],
+  );
+}
+
+function getCellVisuals(
+  token: Token,
+  _inRange: boolean,
+): { color: string; fillOpacity: number } {
+  return {
+    color: token ? CELL_COLOR_WITH_TOKEN : CELL_COLOR_EMPTY,
+    fillOpacity: token ? CELL_FILL_OPACITY_WITH_TOKEN : CELL_FILL_OPACITY_EMPTY,
+  };
+}
+
+function applyCellHoverStyle(
+  rect: leaflet.Rectangle,
+  _inRange: boolean,
+  isHovering: boolean,
+): void {
+  if (isHovering) {
+    rect.setStyle({
+      weight: _inRange ? CELL_WEIGHT_HOVER : CELL_WEIGHT_OUT_OF_RANGE,
+      dashArray: _inRange ? undefined : CELL_DASH_OUT_OF_RANGE,
+    });
+  } else {
+    rect.setStyle({
+      weight: _inRange ? CELL_WEIGHT_IN_RANGE : CELL_WEIGHT_OUT_OF_RANGE,
+      dashArray: undefined,
+    });
+  }
 }
 
 /* -----------------------
@@ -295,20 +331,19 @@ function flashCell(i: number, j: number) {
   const key = cellKey(i, j);
   const layer = cellLayers.get(key);
   if (!layer) return;
-  // Rectangle has setStyle available on its type
-  layer.setStyle({ color: "#e76f51" });
+  layer.setStyle({ color: CELL_COLOR_INVALID });
   setTimeout(() => {
-    // revert by redrawing once for consistent style
+    // Revert by redrawing with consistent style
     drawOrUpdateCell(i, j);
-  }, 300);
+  }, FLASH_DURATION_MS);
 }
 
 function showNotification(text: string) {
-  const n = document.createElement("div");
-  n.className = "notification";
-  n.innerText = text;
-  document.body.append(n);
-  setTimeout(() => n.remove(), 2500);
+  const notification = document.createElement("div");
+  notification.className = "notification";
+  notification.innerText = text;
+  document.body.append(notification);
+  setTimeout(() => notification.remove(), NOTIFICATION_DURATION_MS);
 }
 
 /* -----------------------
