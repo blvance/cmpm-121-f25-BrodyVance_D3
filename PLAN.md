@@ -118,3 +118,69 @@ Code Smells and Clean up
   3. Remove debbugging code
 
 - Check deployment after cleaning code
+
+---
+
+## D3.b: Globe-spanning Gameplay
+
+Expand the game to support player movement across the map and an earth-spanning coordinate system anchored at Null Island (0°, 0°).
+
+### Core checklist
+
+-
+  0.[ ] Player movement & coordinate system
+  - [ ] Add movement simulation controls (north/south/east/west buttons or keyboard)
+  - [ ] Switch from fixed classroom location to earth-spanning coordinates anchored at Null Island (0, 0)
+  - [ ] Update player position state and marker as movement occurs
+
+-
+  1.[ ] Map panning & grid updates
+  - [ ] Implement `moveend` event listener to trigger grid re-rendering when player pans
+  - [ ] Ensure cells spawn/despawn dynamically as player moves to keep screen full
+  - [ ] Cells should remain visible to map edges (no blank areas)
+
+-
+  2.[ ] Cell coordinate system (refactor)
+  - [ ] Define `Cell` interface/type: `{ i: number; j: number }` (independent of screen representation)
+  - [ ] Create function `latLngToCell(lat, lng): Cell` for continuous→cell conversion
+  - [ ] Create function `cellBounds(cell): { topLeft: [lat, lng], bottomRight: [lat, lng] }` for cell→bounds conversion
+  - [ ] Update `drawOrUpdateCell` to use new `Cell` type throughout
+
+-
+  3.[ ] Interaction radius & in-range checks
+  - [ ] Update `isInRange` to check against player's current cell position (not fixed classroom)
+  - [ ] Player can only interact with cells within ~3 cells of their current position
+
+-
+  4.[ ] State persistence (cells forget off-screen)
+  - [ ] Ensure `modifiedCells` map is cleared/reset when cells leave visibility range
+  - [ ] Verify cells show initial deterministic state on re-entry (farming behavior)
+  - [ ] Document this temporary behavior (will be fixed in D3.c)
+
+-
+  5.[ ] Crafting & victory
+  - [ ] Update `TARGET_VALUE` to a higher threshold (e.g., 16 or 32)
+  - [ ] Declare victory when player reaches the new target
+  - [ ] Display victory message or UI element
+
+-
+  6.[ ] Manual testing
+  - [ ] Move player in all directions and confirm cells spawn/despawn correctly
+  - [ ] Verify player can only interact with nearby cells
+  - [ ] Confirm cells reset state when they re-enter visibility (farming)
+  - [ ] Test crafting to new target value and victory declaration
+
+### Acceptance criteria (quick)
+
+- Player can move character or pan map; cells always fill the viewport
+- Cells use earth-spanning coordinates anchored at Null Island
+- Player can only interact with cells near their current position
+- Cells reset state when off-screen; farmable by moving in/out of range
+- Victory declared when new (higher) target token value is reached
+
+### Implementation notes
+
+- Use Leaflet's `map.on('moveend', ...)` to detect when panning/movement finishes and trigger grid update
+- Separate cell identity (i, j pair) from visual representation (Leaflet rectangle)
+- Consider storing player position as `playerCell: Cell` to simplify in-range checks
+- Optional: add keyboard shortcuts (arrow keys) or buttons for movement simulation
