@@ -88,3 +88,10 @@ Already complete:
 - **Farming gameplay note:** This creates a "farming" loop where players can revisit areas and find newly generated tokens (useful for gathering resources).
 - **Future D3.c:** This temporary memory-efficient approach will be replaced with persistent world state in D3.c, allowing cells to maintain modifications indefinitely across the globe.
 - **Implementation:** `drawVisibleGrid()` now deletes `modifiedCells` entries for cells outside the visibility range, triggering `getCellToken()` to return the initial deterministic value on re-entry.
+
+### Step 6: Crafting & victory ✓
+
+- **Victory target:** Updated `TARGET_VALUE` from 8 to **1024** — the ultimate crafting goal.
+- **Victory UI:** When the player crafts a token with value ≥ 1024, a full-screen victory overlay appears with a celebratory message and purple gradient background.
+- **Victory function:** New `showVictory()` displays a centered, prominently styled message: `🎉 Victory! You crafted 1024! 🎉`
+- **Gameplay loop:** Players must craft tokens repeatedly (2→4→8→16→32→64→128→256→512→1024) by collecting and combining equal-value tokens, creating a satisfying progression.

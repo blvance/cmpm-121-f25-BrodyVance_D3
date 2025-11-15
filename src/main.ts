@@ -38,7 +38,8 @@ const CLASSROOM_LATLNG = leaflet.latLng(
 const GAMEPLAY_ZOOM_LEVEL = 19;
 const TILE_DEGREES = 1e-4; // cell size in degrees ~ size of a house
 const INTERACT_RADIUS = 3; // in cells (Chebyshev distance); player can only interact with cells within this range
-const TARGET_VALUE = 8; // value to trigger notification
+// Step 6: Crafting & victory
+const TARGET_VALUE = 1024; // value to trigger victory
 
 // Visual constants (extracted magic numbers)
 const TOKEN_SPAWN_THRESHOLD = 0.96;
@@ -174,6 +175,7 @@ function movePlayer(di: number, dj: number) {
    Drawing & UI functions
    ----------------------- */
 
+// Grid rendering
 function drawVisibleGrid() {
   // Compute cell ranges that cover the current viewport
   const bounds = map.getBounds();
@@ -188,7 +190,6 @@ function drawVisibleGrid() {
   // Step 5: State persistence (cells forget off-screen)
   // When cells leave visibility range, clear their modifiedCells entries
   // so they revert to initial deterministic state on re-entry.
-  // This is temporary behavior; D3.c will persist state across the world.
   const visibleKeys = new Set<string>();
   for (let i = minI - 2; i <= maxI + 2; i++) {
     for (let j = minJ - 2; j <= maxJ + 2; j++) {
@@ -255,12 +256,14 @@ function drawOrUpdateCell(cell: Cell) {
   cellLayers.set(key, rect);
 }
 
+// Inventory UI
 function updateInventoryUI() {
   statusPanelDiv.innerText = inventory
     ? `Inventory: ${inventory.value}`
     : "Inventory: empty";
 }
 
+// Layer management
 function removeCellLayer(key: CellKey) {
   if (cellLayers.has(key)) {
     const layer = cellLayers.get(key)!;
@@ -269,6 +272,7 @@ function removeCellLayer(key: CellKey) {
   }
 }
 
+// Cell visuals & styling
 function getCellBounds(i: number, j: number): leaflet.LatLngBounds {
   const south = i * TILE_DEGREES;
   const west = j * TILE_DEGREES;
@@ -310,6 +314,7 @@ function applyCellHoverStyle(
    Interaction logic
    ----------------------- */
 
+// Cell click handling
 function onCellClick(i: number, j: number) {
   const key = cellKey(i, j);
   if (!isInRange(i, j)) {
@@ -349,7 +354,10 @@ function onCellClick(i: number, j: number) {
     inventory = null;
     updateInventoryUI();
     drawOrUpdateCell({ i, j });
+    // Step 6: Check for victory at TARGET_VALUE (1024)
     if (newValue >= TARGET_VALUE) {
+      showVictory();
+    } else {
       showNotification(`Crafted ${newValue}!`);
     }
     return;
@@ -364,6 +372,7 @@ function onCellClick(i: number, j: number) {
    Small UI helpers
    ----------------------- */
 
+// Visual feedback
 function flashCell(i: number, j: number) {
   const key = cellKey(i, j);
   const layer = cellLayers.get(key);
@@ -375,6 +384,7 @@ function flashCell(i: number, j: number) {
   }, FLASH_DURATION_MS);
 }
 
+// Notifications & messages
 function showNotification(text: string) {
   const notification = document.createElement("div");
   notification.className = "notification";
@@ -383,11 +393,45 @@ function showNotification(text: string) {
   setTimeout(() => notification.remove(), NOTIFICATION_DURATION_MS);
 }
 
+// Step 6: Display victory UI when player reaches TARGET_VALUE (1024)
+function showVictory() {
+  const victoryOverlay = document.createElement("div");
+  victoryOverlay.id = "victoryOverlay";
+  victoryOverlay.style.cssText = `
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.7);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10000;
+  `;
+
+  const victoryBox = document.createElement("div");
+  victoryBox.style.cssText = `
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 40px 60px;
+    border-radius: 16px;
+    text-align: center;
+    font-size: 36px;
+    font-weight: bold;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+  `;
+  victoryBox.innerText = `🎉 Victory! You crafted ${TARGET_VALUE}! 🎉`;
+
+  victoryOverlay.append(victoryBox);
+  document.body.append(victoryOverlay);
+}
+
 /* -----------------------
    Startup wiring
    ----------------------- */
 
-// Movement control buttons
+// Movement controls: D-pad buttons
 const movementDiv = document.createElement("div");
 movementDiv.id = "movementControls";
 movementDiv.style.cssText =
@@ -433,7 +477,7 @@ const moveWestBtn = createButton("←", () => movePlayer(0, -1), "left");
 movementDiv.append(moveNorthBtn, moveSouthBtn, moveEastBtn, moveWestBtn);
 mapDiv.parentElement?.insertBefore(movementDiv, mapDiv);
 
-// Draw grid on map move, player has finished moving the map:
+// Map event listeners
 map.on("moveend", () => drawVisibleGrid());
 
 // Keyboard controls for player movement
@@ -466,10 +510,7 @@ globalThis.addEventListener("keydown", (e: KeyboardEvent) => {
   }
 });
 
-// Initial map center on player at Null Island
+// Initialize game state
 map.panTo(cellToLatLng(playerCell), { animate: false });
-
-// Initial draw
 drawVisibleGrid();
-
 updateInventoryUI();

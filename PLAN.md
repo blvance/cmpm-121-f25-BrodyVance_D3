@@ -147,21 +147,29 @@ Expand the game to support player movement across the map and an earth-spanning 
   - [ x] Update `isInRange` to check against player's current cell position (not fixed classroom)
   - [ x] Player can only interact with cells within ~3 cells of their current position
 
-- 5.[ ] State persistence (cells forget off-screen)
-  - [ ] Ensure `modifiedCells` map is cleared/reset when cells leave visibility range
-  - [ ] Verify cells show initial deterministic state on re-entry (farming behavior)
-  - [ ] Document this temporary behavior (will be fixed in D3.c)
+- 5.[x ] State persistence (cells forget off-screen)
+  - [x ] Ensure `modifiedCells` map is cleared/reset when cells leave visibility range
+  - [x ] Verify cells show initial deterministic state on re-entry (farming behavior)
+  - [x ] Document this temporary behavior (will be fixed in D3.c)
 
-- 6.[ ] Crafting & victory
-  - [ ] Update `TARGET_VALUE` to a higher threshold (e.g., 16 or 32)
-  - [ ] Declare victory when player reaches the new target
-  - [ ] Display victory message or UI element
+- 6.[ x] Crafting & victory
+  - [x ] Update `TARGET_VALUE` to a higher threshold (e.g., 16 or 32)
+  - [x ] Declare victory when player reaches the new target
+  - [ x] Display victory message or UI element
 
-- 7.[ ] Manual testing
-  - [ ] Move player in all directions and confirm cells spawn/despawn correctly
-  - [ ] Verify player can only interact with nearby cells
-  - [ ] Confirm cells reset state when they re-enter visibility (farming)
-  - [ ] Test crafting to new target value and victory declaration
+- 7.[ x] Manual testing
+  - [x ] Move player in all directions and confirm cells spawn/despawn correctly
+  - [x ] Verify player can only interact with nearby cells
+  - [x ] Confirm cells reset state when they re-enter visibility (farming)
+  - [x ] Test crafting to new target value and victory declaration
+
+- 8.[ ] Code Refactoring and code smells
+  - [ ] Remove any unused variables or dead code
+  - [ ] Ensure all linting errors are resolved (deno lint passes)
+  - [ ] Check TypeScript types are correct and no `any` types remain
+  - [ ] Consolidate repeated logic into helper functions
+  - [ ] Add clear comments/documentation for complex sections
+  - [ ] Verify all console.log or debug statements are removed
 
 ### Acceptance criteria (quick)
 
