@@ -59,3 +59,16 @@ Created the PLAN.md file and duplicated main file original code into reference.t
 - Extended grid buffer to ±2 cells beyond viewport edges (previously ±1) to ensure **zero blank areas** during fast panning and prevent visual gaps.
 - Off-screen cells are efficiently removed from memory to maintain performance across large play sessions.
 - Grid rendering is viewport-aware: only cells within the visible bounds + buffer are drawn, reducing memory usage and improving frame rate.
+
+### Step 2: Cell Coordinate System (Refactor) ✓
+
+- **Cell type:** Introduced a single `Cell` shape used throughout the code: `{ i: number; j: number }` representing integer cell coordinates independent of screen or Leaflet types.
+- **latLngToCell:** Annotated `latLngToCell(lat, lng): Cell` to explicitly return the `Cell` type and to centralize continuous→cell conversion (uses `Math.floor` with `TILE_DEGREES`).
+- **cellBounds:** Added `cellBounds(cell)` helper which returns simple, map-independent corner coordinates for a cell as `{ topLeft: [lat, lng], bottomRight: [lat, lng] }` (useful for logic/testing separate from Leaflet bounds).
+- **drawOrUpdateCell:** Refactored to accept a `Cell` (`drawOrUpdateCell(cell: Cell)`) instead of separate `i, j` numeric args; internals now use `cell.i` / `cell.j` and the function uses `getCellBounds(cell.i, cell.j)` to produce Leaflet bounds.
+- **Call sites updated:** All internal callers (grid drawing loop, interaction handlers, flash/redraw helpers) now pass a `Cell` object like `{ i, j }` to `drawOrUpdateCell`.
+
+Notes:
+
+- The new `cellBounds` helper is intentionally independent of Leaflet; the code still uses `getCellBounds(i, j)` where Leaflet `LatLngBounds` are required. `cellBounds` can be used for testing or non-visual logic.
+- TypeScript/linters may warn that `cellBounds` is unused; prefix with an underscore (`_cellBounds`) or use it where appropriate to silence the warning.

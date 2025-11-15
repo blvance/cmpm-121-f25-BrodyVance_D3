@@ -137,11 +137,11 @@ Expand the game to support player movement across the map and an earth-spanning 
   - [x] Ensure cells spawn/despawn dynamically as player moves to keep screen full
   - [x] Cells should remain visible to map edges (no blank areas)
 
-- 2.[ ] Cell coordinate system (refactor)
-  - [ ] Define `Cell` interface/type: `{ i: number; j: number }` (independent of screen representation)
-  - [ ] Create function `latLngToCell(lat, lng): Cell` for continuous→cell conversion
-  - [ ] Create function `cellBounds(cell): { topLeft: [lat, lng], bottomRight: [lat, lng] }` for cell→bounds conversion
-  - [ ] Update `drawOrUpdateCell` to use new `Cell` type throughout
+- 2.[x ] Cell coordinate system (refactor)
+  - [x ] Define `Cell` interface/type: `{ i: number; j: number }` (independent of screen representation)
+  - [x ] Create function `latLngToCell(lat, lng): Cell` for continuous→cell conversion
+  - [x ] Create function `cellBounds(cell): { topLeft: [lat, lng], bottomRight: [lat, lng] }` for cell→bounds conversion
+  - [ x] Update `drawOrUpdateCell` to use new `Cell` type throughout
 
 - 3.[ ] Interaction radius & in-range checks
   - [ ] Update `isInRange` to check against player's current cell position (not fixed classroom)

@@ -108,7 +108,7 @@ const cellLayers = new Map<CellKey, leaflet.Rectangle>();
    Coordinate & token logic
    ----------------------- */
 
-function latLngToCell(lat: number, lng: number) {
+function latLngToCell(lat: number, lng: number): Cell {
   // Use floor so negative coordinates map consistently
   const i = Math.floor(lat / TILE_DEGREES);
   const j = Math.floor(lng / TILE_DEGREES);
@@ -201,21 +201,21 @@ function drawVisibleGrid() {
   // Draw visible cells
   for (let i = minI; i <= maxI; i++) {
     for (let j = minJ; j <= maxJ; j++) {
-      drawOrUpdateCell(i, j);
+      drawOrUpdateCell({ i, j });
     }
   }
 }
 
-function drawOrUpdateCell(i: number, j: number) {
-  const key = cellKey(i, j);
+function drawOrUpdateCell(cell: Cell) {
+  const key = cellKey(cell.i, cell.j);
   removeCellLayer(key);
 
   // Compute bounds for this cell
-  const bounds = getCellBounds(i, j);
+  const bounds = getCellBounds(cell.i, cell.j);
 
   // Determine token and style
-  const token = getCellToken(i, j);
-  const inRange = isInRange(i, j);
+  const token = getCellToken(cell.i, cell.j);
+  const inRange = isInRange(cell.i, cell.j);
   const { color, fillOpacity } = getCellVisuals(token, inRange);
 
   const rect = leaflet.rectangle(bounds, {
@@ -239,7 +239,7 @@ function drawOrUpdateCell(i: number, j: number) {
   }
 
   // Clickable handler
-  rect.on("click", () => onCellClick(i, j));
+  rect.on("click", () => onCellClick(cell.i, cell.j));
 
   // Hover effects for in-range hints
   rect.on("mouseover", () => applyCellHoverStyle(rect, inRange, true));
@@ -319,7 +319,7 @@ function onCellClick(i: number, j: number) {
     // Mark cell as emptied
     modifiedCells.set(key, null);
     updateInventoryUI();
-    drawOrUpdateCell(i, j);
+    drawOrUpdateCell({ i, j });
     return;
   }
 
@@ -328,7 +328,7 @@ function onCellClick(i: number, j: number) {
     modifiedCells.set(key, inventory);
     inventory = null;
     updateInventoryUI();
-    drawOrUpdateCell(i, j);
+    drawOrUpdateCell({ i, j });
     return;
   }
 
@@ -341,7 +341,7 @@ function onCellClick(i: number, j: number) {
     modifiedCells.set(key, { value: newValue });
     inventory = null;
     updateInventoryUI();
-    drawOrUpdateCell(i, j);
+    drawOrUpdateCell({ i, j });
     if (newValue >= TARGET_VALUE) {
       showNotification(`Crafted ${newValue}!`);
     }
@@ -364,7 +364,7 @@ function flashCell(i: number, j: number) {
   layer.setStyle({ color: CELL_COLOR_INVALID });
   setTimeout(() => {
     // Revert by redrawing with consistent style
-    drawOrUpdateCell(i, j);
+    drawOrUpdateCell({ i, j });
   }, FLASH_DURATION_MS);
 }
 
