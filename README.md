@@ -80,3 +80,11 @@ Already complete:
 - isInRange function (line ~149) — checks against playerCell.i and playerCell.j (the player's current cell position, not a fixed classroom location).
 - Chebyshev distance check — Math.max(dx, dy) <= radius ensures only cells within ~3 cells of the player can be interacted with.
 - INTERACT_RADIUS = 3 constant — configurable and used throughout.
+
+### Step 5: State persistence (cells forget off-screen) ✓
+
+- **Temporary behavior:** When cells leave the visibility range (viewport + buffer), their entries in `modifiedCells` are cleared.
+- **Re-entry behavior:** When a cell comes back into view, it reverts to its initial deterministic state (as if freshly generated).
+- **Farming gameplay note:** This creates a "farming" loop where players can revisit areas and find newly generated tokens (useful for gathering resources).
+- **Future D3.c:** This temporary memory-efficient approach will be replaced with persistent world state in D3.c, allowing cells to maintain modifications indefinitely across the globe.
+- **Implementation:** `drawVisibleGrid()` now deletes `modifiedCells` entries for cells outside the visibility range, triggering `getCellToken()` to return the initial deterministic value on re-entry.

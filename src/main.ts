@@ -185,8 +185,10 @@ function drawVisibleGrid() {
   const { j: minJ } = latLngToCell(sw.lat, sw.lng);
   const { j: maxJ } = latLngToCell(ne.lat, ne.lng);
 
-  // Remove layers for cells no longer visible
-  // Step 2 already completed
+  // Step 5: State persistence (cells forget off-screen)
+  // When cells leave visibility range, clear their modifiedCells entries
+  // so they revert to initial deterministic state on re-entry.
+  // This is temporary behavior; D3.c will persist state across the world.
   const visibleKeys = new Set<string>();
   for (let i = minI - 2; i <= maxI + 2; i++) {
     for (let j = minJ - 2; j <= maxJ + 2; j++) {
@@ -194,9 +196,12 @@ function drawVisibleGrid() {
     }
   }
 
+  // Remove layers and clear state for cells no longer visible
   for (const key of cellLayers.keys()) {
     if (!visibleKeys.has(key)) {
       removeCellLayer(key);
+      // Clear modifiedCells entry so cell reverts to deterministic initial state
+      modifiedCells.delete(key);
     }
   }
 
