@@ -30,3 +30,24 @@ Created the PLAN.md file and duplicated main file original code into reference.t
   Removed unhelpful comments
   Removed Unnecessary Array Conversion: Changed Array.from(cellLayers.keys()) to just cellLayers.keys() for iteration (minor but cleaner).
   Better Code Organization: Constants are grouped, helper functions are placed logically near where they're used, and similar operations are consolidated.
+
+## D3.b Progress Track
+
+### Step 0: Player Movement & Coordinate System ✓
+
+- Switched from fixed classroom location to Null Island (0°, 0°) as player spawn point.
+- Converted `playerCell` to a mutable state variable (object with `i` and `j` properties) that updates as player moves.
+- Added `cellToLatLng()` helper function to convert cell coordinates back to lat/lng for map positioning.
+- Added `movePlayer(di, dj)` function to handle movement delta, update player marker position, pan map, and redraw the grid.
+- Implemented **keyboard controls**:
+  - Arrow keys (↑↓←→) for movement
+  - WASD keys (W/A/S/D) for alternative control scheme
+  - All keys preventDefault to avoid unwanted page scrolling
+- Implemented **D-pad style movement buttons** in bottom-right corner with:
+  - Grid layout positioning (up/down/left/right arrangement)
+  - Purple gradient background with smooth hover effects
+  - Scale animation on hover for visual feedback
+  - Clean arrow-only labels (↑↓←→)
+- Player marker (`playerMarker`) now displays at the player's current cell position and updates dynamically as they move.
+- Map automatically pans to keep the player centered on screen after each movement.
+- Grid cells redraw on movement to show new in-range interactions and maintain farmability (cells spawn/despawn as player moves).

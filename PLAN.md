@@ -127,10 +127,10 @@ Expand the game to support player movement across the map and an earth-spanning 
 
 ### Core checklist
 
-- 0.[ ] Player movement & coordinate system
-  - [ ] Add movement simulation controls (north/south/east/west buttons or keyboard)
-  - [ ] Switch from fixed classroom location to earth-spanning coordinates anchored at Null Island (0, 0)
-  - [ ] Update player position state and marker as movement occurs
+- 0.[x ] Player movement & coordinate system
+  - [x ] Add movement simulation controls (north/south/east/west buttons or keyboard)
+  - [x ] Switch from fixed classroom location to earth-spanning coordinates anchored at Null Island (0, 0)
+  - [x ] Update player position state and marker as movement occurs
 
 - 1.[ ] Map panning & grid updates
   - [ ] Implement `moveend` event listener to trigger grid re-rendering when player pans

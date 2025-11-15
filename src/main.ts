@@ -37,7 +37,7 @@ const CLASSROOM_LATLNG = leaflet.latLng(
 // Gameplay constants
 const GAMEPLAY_ZOOM_LEVEL = 19;
 const TILE_DEGREES = 1e-4; // cell size in degrees ~ size of a house
-const INTERACT_RADIUS = 30; // in cells (Chebyshev distance)
+const INTERACT_RADIUS = 3; // in cells (Chebyshev distance)
 const TARGET_VALUE = 8; // value to trigger notification
 
 // Visual constants (extracted magic numbers)
@@ -78,9 +78,6 @@ leaflet
   })
   .addTo(map);
 
-const playerMarker = leaflet.marker(CLASSROOM_LATLNG).addTo(map);
-playerMarker.bindTooltip("You are here", { permanent: false });
-
 statusPanelDiv.innerText = "Inventory: empty";
 
 /* -----------------------
@@ -89,8 +86,16 @@ statusPanelDiv.innerText = "Inventory: empty";
 
 type Token = { value: number } | null;
 type CellKey = string;
+type Cell = { i: number; j: number };
 
-const playerCell = latLngToCell(CLASSROOM_LATLNG.lat, CLASSROOM_LATLNG.lng);
+// Player starts at Null Island (0, 0)
+// deno-lint-ignore prefer-const
+let playerCell: Cell = { i: 0, j: 0 };
+
+// Create marker at player position
+// deno-lint-ignore prefer-const
+let playerMarker = leaflet.marker(cellToLatLng(playerCell)).addTo(map);
+playerMarker.bindTooltip("You are here", { permanent: false });
 let inventory: Token = null;
 
 // Track player-made modifications (key -> Token or null for emptied)
@@ -108,6 +113,13 @@ function latLngToCell(lat: number, lng: number) {
   const i = Math.floor(lat / TILE_DEGREES);
   const j = Math.floor(lng / TILE_DEGREES);
   return { i, j };
+}
+
+function cellToLatLng(cell: Cell): leaflet.LatLng {
+  // Convert cell coordinates back to lat/lng (center of cell)
+  const lat = (cell.i + 0.5) * TILE_DEGREES;
+  const lng = (cell.j + 0.5) * TILE_DEGREES;
+  return leaflet.latLng(lat, lng);
 }
 
 function cellKey(i: number, j: number): CellKey {
@@ -138,6 +150,22 @@ function isInRange(i: number, j: number, radius = INTERACT_RADIUS) {
   const dx = Math.abs(i - playerCell.i);
   const dy = Math.abs(j - playerCell.j);
   return Math.max(dx, dy) <= radius;
+}
+
+function movePlayer(di: number, dj: number) {
+  // Move player by delta cells
+  playerCell.i += di;
+  playerCell.j += dj;
+
+  // Update marker position
+  const newLatLng = cellToLatLng(playerCell);
+  playerMarker.setLatLng(newLatLng);
+
+  // Center map on player
+  map.panTo(newLatLng, { animate: false });
+
+  // Redraw grid to show new in-range cells
+  drawVisibleGrid();
 }
 
 /* -----------------------
@@ -350,8 +378,87 @@ function showNotification(text: string) {
    Startup wiring
    ----------------------- */
 
+// Movement control buttons
+const movementDiv = document.createElement("div");
+movementDiv.id = "movementControls";
+movementDiv.style.cssText =
+  "position: absolute; bottom: 20px; right: 20px; z-index: 1000; display: grid; grid-template-columns: repeat(3, 50px); gap: 4px; grid-template-areas: '. up .' 'left down right';";
+
+const createButton = (
+  label: string,
+  callback: () => void,
+  gridArea: string,
+) => {
+  const btn = document.createElement("button");
+  btn.innerText = label;
+  btn.style.cssText = `
+    grid-area: ${gridArea};
+    padding: 8px;
+    font-size: 18px;
+    font-weight: 600;
+    cursor: pointer;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+    transition: all 0.2s ease;
+  `;
+  btn.addEventListener("click", callback);
+  btn.addEventListener("mouseover", () => {
+    btn.style.transform = "scale(1.1)";
+    btn.style.boxShadow = "0 6px 12px rgba(0, 0, 0, 0.3)";
+  });
+  btn.addEventListener("mouseout", () => {
+    btn.style.transform = "scale(1)";
+    btn.style.boxShadow = "0 4px 8px rgba(0, 0, 0, 0.2)";
+  });
+  return btn;
+};
+
+const moveNorthBtn = createButton("↑", () => movePlayer(1, 0), "up");
+const moveSouthBtn = createButton("↓", () => movePlayer(-1, 0), "down");
+const moveEastBtn = createButton("→", () => movePlayer(0, 1), "right");
+const moveWestBtn = createButton("←", () => movePlayer(0, -1), "left");
+
+movementDiv.append(moveNorthBtn, moveSouthBtn, moveEastBtn, moveWestBtn);
+mapDiv.parentElement?.insertBefore(movementDiv, mapDiv);
+
 // Draw grid at start and on any map movement (but zoom is fixed)
 map.on("moveend", () => drawVisibleGrid());
+
+// Keyboard controls for player movement
+globalThis.addEventListener("keydown", (e: KeyboardEvent) => {
+  switch (e.key) {
+    case "ArrowUp":
+    case "w":
+    case "W":
+      movePlayer(1, 0);
+      e.preventDefault();
+      break;
+    case "ArrowDown":
+    case "s":
+    case "S":
+      movePlayer(-1, 0);
+      e.preventDefault();
+      break;
+    case "ArrowRight":
+    case "d":
+    case "D":
+      movePlayer(0, 1);
+      e.preventDefault();
+      break;
+    case "ArrowLeft":
+    case "a":
+    case "A":
+      movePlayer(0, -1);
+      e.preventDefault();
+      break;
+  }
+});
+
+// Initial map center on player at Null Island
+map.panTo(cellToLatLng(playerCell), { animate: false });
 
 // Initial draw
 drawVisibleGrid();
