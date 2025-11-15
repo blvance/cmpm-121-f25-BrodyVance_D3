@@ -184,12 +184,14 @@ function drawVisibleGrid() {
   const { j: maxJ } = latLngToCell(ne.lat, ne.lng);
 
   // Remove layers for cells no longer visible
+  // Step 2 already completed
   const visibleKeys = new Set<string>();
-  for (let i = minI - 1; i <= maxI + 1; i++) {
-    for (let j = minJ - 1; j <= maxJ + 1; j++) {
+  for (let i = minI - 2; i <= maxI + 2; i++) {
+    for (let j = minJ - 2; j <= maxJ + 2; j++) {
       visibleKeys.add(cellKey(i, j));
     }
   }
+
   for (const key of cellLayers.keys()) {
     if (!visibleKeys.has(key)) {
       removeCellLayer(key);
@@ -424,7 +426,7 @@ const moveWestBtn = createButton("←", () => movePlayer(0, -1), "left");
 movementDiv.append(moveNorthBtn, moveSouthBtn, moveEastBtn, moveWestBtn);
 mapDiv.parentElement?.insertBefore(movementDiv, mapDiv);
 
-// Draw grid at start and on any map movement (but zoom is fixed)
+// Draw grid on map move, player has finished moving the map:
 map.on("moveend", () => drawVisibleGrid());
 
 // Keyboard controls for player movement

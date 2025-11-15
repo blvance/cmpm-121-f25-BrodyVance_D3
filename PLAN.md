@@ -132,10 +132,10 @@ Expand the game to support player movement across the map and an earth-spanning 
   - [x ] Switch from fixed classroom location to earth-spanning coordinates anchored at Null Island (0, 0)
   - [x ] Update player position state and marker as movement occurs
 
-- 1.[ ] Map panning & grid updates
-  - [ ] Implement `moveend` event listener to trigger grid re-rendering when player pans
-  - [ ] Ensure cells spawn/despawn dynamically as player moves to keep screen full
-  - [ ] Cells should remain visible to map edges (no blank areas)
+- 1.[x] Map panning & grid updates
+  - [x] Implement `moveend` event listener to trigger grid re-rendering when player pans
+  - [x] Ensure cells spawn/despawn dynamically as player moves to keep screen full
+  - [x] Cells should remain visible to map edges (no blank areas)
 
 - 2.[ ] Cell coordinate system (refactor)
   - [ ] Define `Cell` interface/type: `{ i: number; j: number }` (independent of screen representation)

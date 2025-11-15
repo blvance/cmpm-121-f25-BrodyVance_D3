@@ -51,3 +51,11 @@ Created the PLAN.md file and duplicated main file original code into reference.t
 - Player marker (`playerMarker`) now displays at the player's current cell position and updates dynamically as they move.
 - Map automatically pans to keep the player centered on screen after each movement.
 - Grid cells redraw on movement to show new in-range interactions and maintain farmability (cells spawn/despawn as player moves).
+
+### Step 1: Map Panning & Grid Updates ✓
+
+- Made sure implemented `moveend` event listener that triggers `drawVisibleGrid()` whenever the player moves or the map pans.
+- Cells now dynamically spawn and despawn as the player moves across the globe, keeping the screen full of interactive content.
+- Extended grid buffer to ±2 cells beyond viewport edges (previously ±1) to ensure **zero blank areas** during fast panning and prevent visual gaps.
+- Off-screen cells are efficiently removed from memory to maintain performance across large play sessions.
+- Grid rendering is viewport-aware: only cells within the visible bounds + buffer are drawn, reducing memory usage and improving frame rate.
