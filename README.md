@@ -33,7 +33,7 @@ Created the PLAN.md file and duplicated main file original code into reference.t
 
 ## D3.b Progress Track
 
-### Step 0: Player Movement & Coordinate System ✓
+### Step 1: Player Movement & Coordinate System ✓
 
 - Switched from fixed classroom location to Null Island (0°, 0°) as player spawn point.
 - Converted `playerCell` to a mutable state variable (object with `i` and `j` properties) that updates as player moves.
@@ -52,7 +52,7 @@ Created the PLAN.md file and duplicated main file original code into reference.t
 - Map automatically pans to keep the player centered on screen after each movement.
 - Grid cells redraw on movement to show new in-range interactions and maintain farmability (cells spawn/despawn as player moves).
 
-### Step 1: Map Panning & Grid Updates ✓
+### Step 2: Map Panning & Grid Updates ✓
 
 - Made sure implemented `moveend` event listener that triggers `drawVisibleGrid()` whenever the player moves or the map pans.
 - Cells now dynamically spawn and despawn as the player moves across the globe, keeping the screen full of interactive content.
@@ -60,7 +60,7 @@ Created the PLAN.md file and duplicated main file original code into reference.t
 - Off-screen cells are efficiently removed from memory to maintain performance across large play sessions.
 - Grid rendering is viewport-aware: only cells within the visible bounds + buffer are drawn, reducing memory usage and improving frame rate.
 
-### Step 2: Cell Coordinate System (Refactor) ✓
+### Step 3: Cell Coordinate System (Refactor) ✓
 
 - **Cell type:** Introduced a single `Cell` shape used throughout the code: `{ i: number; j: number }` representing integer cell coordinates independent of screen or Leaflet types.
 - **latLngToCell:** Annotated `latLngToCell(lat, lng): Cell` to explicitly return the `Cell` type and to centralize continuous→cell conversion (uses `Math.floor` with `TILE_DEGREES`).
@@ -72,3 +72,11 @@ Notes:
 
 - The new `cellBounds` helper is intentionally independent of Leaflet; the code still uses `getCellBounds(i, j)` where Leaflet `LatLngBounds` are required. `cellBounds` can be used for testing or non-visual logic.
 - TypeScript/linters may warn that `cellBounds` is unused; prefix with an underscore (`_cellBounds`) or use it where appropriate to silence the warning.
+
+### Step 4: Interaction radius & in-range checks
+
+Already complete:
+
+- isInRange function (line ~149) — checks against playerCell.i and playerCell.j (the player's current cell position, not a fixed classroom location).
+- Chebyshev distance check — Math.max(dx, dy) <= radius ensures only cells within ~3 cells of the player can be interacted with.
+- INTERACT_RADIUS = 3 constant — configurable and used throughout.

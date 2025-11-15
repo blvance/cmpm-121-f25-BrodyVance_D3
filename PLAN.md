@@ -127,37 +127,37 @@ Expand the game to support player movement across the map and an earth-spanning 
 
 ### Core checklist
 
-- 0.[x ] Player movement & coordinate system
+- 1.[x ] Player movement & coordinate system
   - [x ] Add movement simulation controls (north/south/east/west buttons or keyboard)
   - [x ] Switch from fixed classroom location to earth-spanning coordinates anchored at Null Island (0, 0)
   - [x ] Update player position state and marker as movement occurs
 
-- 1.[x] Map panning & grid updates
+- 2.[x] Map panning & grid updates
   - [x] Implement `moveend` event listener to trigger grid re-rendering when player pans
   - [x] Ensure cells spawn/despawn dynamically as player moves to keep screen full
   - [x] Cells should remain visible to map edges (no blank areas)
 
-- 2.[x ] Cell coordinate system (refactor)
+- 3.[x ] Cell coordinate system (refactor)
   - [x ] Define `Cell` interface/type: `{ i: number; j: number }` (independent of screen representation)
   - [x ] Create function `latLngToCell(lat, lng): Cell` for continuous→cell conversion
   - [x ] Create function `cellBounds(cell): { topLeft: [lat, lng], bottomRight: [lat, lng] }` for cell→bounds conversion
   - [ x] Update `drawOrUpdateCell` to use new `Cell` type throughout
 
-- 3.[ ] Interaction radius & in-range checks
-  - [ ] Update `isInRange` to check against player's current cell position (not fixed classroom)
-  - [ ] Player can only interact with cells within ~3 cells of their current position
+- 4.[ x] Interaction radius & in-range checks
+  - [ x] Update `isInRange` to check against player's current cell position (not fixed classroom)
+  - [ x] Player can only interact with cells within ~3 cells of their current position
 
-- 4.[ ] State persistence (cells forget off-screen)
+- 5.[ ] State persistence (cells forget off-screen)
   - [ ] Ensure `modifiedCells` map is cleared/reset when cells leave visibility range
   - [ ] Verify cells show initial deterministic state on re-entry (farming behavior)
   - [ ] Document this temporary behavior (will be fixed in D3.c)
 
-- 5.[ ] Crafting & victory
+- 6.[ ] Crafting & victory
   - [ ] Update `TARGET_VALUE` to a higher threshold (e.g., 16 or 32)
   - [ ] Declare victory when player reaches the new target
   - [ ] Display victory message or UI element
 
-- 6.[ ] Manual testing
+- 7.[ ] Manual testing
   - [ ] Move player in all directions and confirm cells spawn/despawn correctly
   - [ ] Verify player can only interact with nearby cells
   - [ ] Confirm cells reset state when they re-enter visibility (farming)

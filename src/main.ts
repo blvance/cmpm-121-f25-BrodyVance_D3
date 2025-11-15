@@ -37,7 +37,7 @@ const CLASSROOM_LATLNG = leaflet.latLng(
 // Gameplay constants
 const GAMEPLAY_ZOOM_LEVEL = 19;
 const TILE_DEGREES = 1e-4; // cell size in degrees ~ size of a house
-const INTERACT_RADIUS = 3; // in cells (Chebyshev distance)
+const INTERACT_RADIUS = 3; // in cells (Chebyshev distance); player can only interact with cells within this range
 const TARGET_VALUE = 8; // value to trigger notification
 
 // Visual constants (extracted magic numbers)
@@ -146,9 +146,11 @@ function getCellToken(i: number, j: number): Token {
   return initialTokenForCell(i, j);
 }
 
+// Step 4: Check if a cell is within interaction range of the player's current position
 function isInRange(i: number, j: number, radius = INTERACT_RADIUS) {
   const dx = Math.abs(i - playerCell.i);
   const dy = Math.abs(j - playerCell.j);
+  // Chebyshev distance: max of absolute differences ensures square interaction zone
   return Math.max(dx, dy) <= radius;
 }
 
