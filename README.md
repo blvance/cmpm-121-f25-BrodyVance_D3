@@ -95,3 +95,16 @@ Already complete:
 - **Victory UI:** When the player crafts a token with value ≥ 1024, a full-screen victory overlay appears with a celebratory message and purple gradient background.
 - **Victory function:** New `showVictory()` displays a centered, prominently styled message: `🎉 Victory! You crafted 1024! 🎉`
 - **Gameplay loop:** Players must craft tokens repeatedly (2→4→8→16→32→64→128→256→512→1024) by collecting and combining equal-value tokens, creating a satisfying progression.
+
+### Step 7: Grid rendering refactor ✓
+
+- **Named buffer:** Introduced `VIEWPORT_BUFFER` to replace the hardcoded `2` cell buffer; this makes the buffer configurable and documents intent.
+- **Single cell computation:** `drawVisibleGrid()` now computes SW/NE corner cells once (via `latLngToCell`) and reuses those integer coordinates, avoiding duplicate work and clarifying intent.
+- **Helper extraction:** Repeated logic was consolidated into two helper functions:
+  - `computeVisibleKeys(minI, maxI, minJ, maxJ, buffer)` — builds a `Set` of keys that should remain visible (viewport + buffer).
+  - `pruneInvisibleCells(visibleKeys)` — removes Leaflet layers for keys not in the visible set and clears their `modifiedCells` entries (the current temporary persistence behavior).
+- **Readability & maintainability:** The refactor reduces duplicated loops and centralizes the visibility/pruning policy so future changes (like persistence or culling strategies) can be made in one place.
+
+Notes:
+
+- This refactor is intentionally small and behavior-preserving; the visible buffer and pruning semantics remain the same but are clearer and easier to modify.

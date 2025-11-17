@@ -163,13 +163,13 @@ Expand the game to support player movement across the map and an earth-spanning 
   - [x ] Confirm cells reset state when they re-enter visibility (farming)
   - [x ] Test crafting to new target value and victory declaration
 
-- 8.[ ] Code Refactoring and code smells
-  - [ ] Remove any unused variables or dead code
-  - [ ] Ensure all linting errors are resolved (deno lint passes)
-  - [ ] Check TypeScript types are correct and no `any` types remain
-  - [ ] Consolidate repeated logic into helper functions
-  - [ ] Add clear comments/documentation for complex sections
-  - [ ] Verify all console.log or debug statements are removed
+- 8.[x ] Code Refactoring and code smells
+  - [x ] Remove any unused variables or dead code
+  - [x ] Ensure all linting errors are resolved (deno lint passes)
+  - [x ] Check TypeScript types are correct and no `any` types remain
+  - [x ] Consolidate repeated logic into helper functions
+  - [x ] Add clear comments/documentation for complex sections
+  - [x ] Verify all console.log or debug statements are removed
 
 ### Acceptance criteria (quick)
 

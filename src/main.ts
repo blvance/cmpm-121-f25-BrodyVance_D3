@@ -40,6 +40,8 @@ const TILE_DEGREES = 1e-4; // cell size in degrees ~ size of a house
 const INTERACT_RADIUS = 3; // in cells (Chebyshev distance); player can only interact with cells within this range
 // Step 6: Crafting & victory
 const TARGET_VALUE = 1024; // value to trigger victory
+// Grid rendering buffer (how many cells beyond viewport to keep)
+const VIEWPORT_BUFFER = 2;
 
 // Visual constants (extracted magic numbers)
 const TOKEN_SPAWN_THRESHOLD = 0.96;
@@ -182,29 +184,27 @@ function drawVisibleGrid() {
   const sw = bounds.getSouthWest();
   const ne = bounds.getNorthEast();
 
-  const { i: minI } = latLngToCell(sw.lat, sw.lng);
-  const { i: maxI } = latLngToCell(ne.lat, ne.lng);
-  const { j: minJ } = latLngToCell(sw.lat, sw.lng);
-  const { j: maxJ } = latLngToCell(ne.lat, ne.lng);
+  // Compute integer cell coordinates for SW and NE corners once
+  const swCell = latLngToCell(sw.lat, sw.lng);
+  const neCell = latLngToCell(ne.lat, ne.lng);
+  const minI = swCell.i;
+  const maxI = neCell.i;
+  const minJ = swCell.j;
+  const maxJ = neCell.j;
 
   // Step 5: State persistence (cells forget off-screen)
   // When cells leave visibility range, clear their modifiedCells entries
   // so they revert to initial deterministic state on re-entry.
-  const visibleKeys = new Set<string>();
-  for (let i = minI - 2; i <= maxI + 2; i++) {
-    for (let j = minJ - 2; j <= maxJ + 2; j++) {
-      visibleKeys.add(cellKey(i, j));
-    }
-  }
+  const visibleKeys = computeVisibleKeys(
+    minI,
+    maxI,
+    minJ,
+    maxJ,
+    VIEWPORT_BUFFER,
+  );
 
   // Remove layers and clear state for cells no longer visible
-  for (const key of cellLayers.keys()) {
-    if (!visibleKeys.has(key)) {
-      removeCellLayer(key);
-      // Clear modifiedCells entry so cell reverts to deterministic initial state
-      modifiedCells.delete(key);
-    }
-  }
+  pruneInvisibleCells(visibleKeys);
 
   // Draw visible cells
   for (let i = minI; i <= maxI; i++) {
@@ -290,6 +290,34 @@ function getCellVisuals(
     color: token ? CELL_COLOR_WITH_TOKEN : CELL_COLOR_EMPTY,
     fillOpacity: token ? CELL_FILL_OPACITY_WITH_TOKEN : CELL_FILL_OPACITY_EMPTY,
   };
+}
+
+// Helper: compute the set of cell keys that should remain visible
+function computeVisibleKeys(
+  minI: number,
+  maxI: number,
+  minJ: number,
+  maxJ: number,
+  buffer = 2,
+) {
+  const keys = new Set<string>();
+  for (let i = minI - buffer; i <= maxI + buffer; i++) {
+    for (let j = minJ - buffer; j <= maxJ + buffer; j++) {
+      keys.add(cellKey(i, j));
+    }
+  }
+  return keys;
+}
+
+// Helper: remove layers and clear modified state for cells not in the visible set
+function pruneInvisibleCells(visibleKeys: Set<string>) {
+  for (const key of Array.from(cellLayers.keys())) {
+    if (!visibleKeys.has(key)) {
+      removeCellLayer(key);
+      // Clear modifiedCells entry so cell reverts to deterministic initial state
+      modifiedCells.delete(key);
+    }
+  }
 }
 
 function applyCellHoverStyle(
