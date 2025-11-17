@@ -105,6 +105,20 @@ Already complete:
   - `pruneInvisibleCells(visibleKeys)` — removes Leaflet layers for keys not in the visible set and clears their `modifiedCells` entries (the current temporary persistence behavior).
 - **Readability & maintainability:** The refactor reduces duplicated loops and centralizes the visibility/pruning policy so future changes (like persistence or culling strategies) can be made in one place.
 
+## D3.C - Object persistence
+
 Notes:
 
 - This refactor is intentionally small and behavior-preserving; the visible buffer and pruning semantics remain the same but are clearer and easier to modify.
+
+These are the practical changes applied to the codebase while implementing D3.c and the recent refactors:
+
+- **Flyweight + Memento storage:** `modifiedCells` now stores compact `CellMemento` objects (token + timestamp) so only player-modified cells consume memory. Unmodified cells remain implicit and are generated deterministically.
+- **Persist modified state while page is open:** Pruning no longer evicts modified-cell mementos — a modified cell retains its saved memento when scrolled off-screen and is restored when it returns to view.
+- **Serialization helpers:** `_exportModifiedCells()` and `_importModifiedCells()` were added to produce/consume a JSON-friendly snapshot of the modified-cells Map (prepares for D3.d persistent storage).
+- **Grid rendering refactor recap:** `VIEWPORT_BUFFER` and helpers `computeVisibleKeys(...)` / `pruneInvisibleCells(...)` were introduced; `drawVisibleGrid()` now computes SW/NE cells once and rebuilds visible layers from the deterministic generator plus `modifiedCells` lookups.
+- **Victory update:** `TARGET_VALUE` raised to `1024` and a `showVictory()` overlay was added to surface the win condition when the player crafts that value.
+
+Notes:
+
+- These edits implement the D3.c design (Flyweight + Memento) and make it straightforward to add full persistence in a following assignment. The modified-cells Map is the authoritative source of modified state while the visible Leaflet layers are rebuilt on each draw.

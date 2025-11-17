@@ -91,6 +91,9 @@ type Token = { value: number } | null;
 type CellKey = string;
 type Cell = { i: number; j: number };
 
+// Memento stored for modified cells (Flyweight + Memento pattern)
+type CellMemento = { token?: Token | null; timestamp?: number | undefined };
+
 // Player starts at Null Island (0, 0)
 // deno-lint-ignore prefer-const
 let playerCell: Cell = { i: 0, j: 0 };
@@ -101,8 +104,8 @@ let playerMarker = leaflet.marker(cellToLatLng(playerCell)).addTo(map);
 playerMarker.bindTooltip("You are here", { permanent: false });
 let inventory: Token = null;
 
-// Track player-made modifications (key -> Token or null for emptied)
-const modifiedCells = new Map<CellKey, Token>();
+// Track player-made modifications (key -> small memento). Only modified cells are stored.
+const modifiedCells = new Map<CellKey, CellMemento>();
 
 // Track drawn layers so we can update/remove them efficiently
 const cellLayers = new Map<CellKey, leaflet.Rectangle>();
@@ -143,8 +146,9 @@ function initialTokenForCell(i: number, j: number): Token {
 function getCellToken(i: number, j: number): Token {
   const key = cellKey(i, j);
   if (modifiedCells.has(key)) {
-    // modifiedCells stores Token | null; if null, the cell has been emptied
-    return modifiedCells.get(key) ?? null;
+    // modifiedCells stores a small memento; memento.token can be Token or null
+    const m = modifiedCells.get(key) as CellMemento | undefined;
+    return m?.token ?? null;
   }
   return initialTokenForCell(i, j);
 }
@@ -314,9 +318,40 @@ function pruneInvisibleCells(visibleKeys: Set<string>) {
   for (const key of Array.from(cellLayers.keys())) {
     if (!visibleKeys.has(key)) {
       removeCellLayer(key);
-      // Clear modifiedCells entry so cell reverts to deterministic initial state
-      modifiedCells.delete(key);
     }
+  }
+}
+
+// Export modifiedCells to a JSON-serializable object.
+// Useful for debugging and for implementing persistent storage in D3.d.
+function _exportModifiedCells(): Record<
+  string,
+  { token: number | null; timestamp?: number }
+> {
+  const out: Record<string, { token: number | null; timestamp?: number }> = {};
+  for (const [key, m] of modifiedCells.entries()) {
+    const ts = m.timestamp === undefined ? undefined : m.timestamp;
+    if (ts === undefined) {
+      out[key] = { token: m.token ? m.token.value ?? null : null };
+    } else {
+      out[key] = {
+        token: m.token ? m.token.value ?? null : null,
+        timestamp: ts,
+      };
+    }
+  }
+  return out;
+}
+
+// Import a previously exported modified-cells object into the in-memory Map.
+function _importModifiedCells(
+  data: Record<string, { token: number | null; timestamp?: number }>,
+) {
+  modifiedCells.clear();
+  for (const key of Object.keys(data)) {
+    const entry = data[key];
+    const token: Token = entry.token == null ? null : { value: entry.token };
+    modifiedCells.set(key, { token, timestamp: entry.timestamp });
   }
 }
 
@@ -356,8 +391,8 @@ function onCellClick(i: number, j: number) {
   // Pickup
   if (inventory == null && cellToken != null) {
     inventory = cellToken;
-    // Mark cell as emptied
-    modifiedCells.set(key, null);
+    // Mark cell as emptied: store memento with token=null and timestamp
+    modifiedCells.set(key, { token: null, timestamp: Date.now() });
     updateInventoryUI();
     drawOrUpdateCell({ i, j });
     return;
@@ -365,7 +400,8 @@ function onCellClick(i: number, j: number) {
 
   // Place into empty cell
   if (inventory != null && cellToken == null) {
-    modifiedCells.set(key, inventory);
+    // Persist the placed token as a compact memento
+    modifiedCells.set(key, { token: inventory, timestamp: Date.now() });
     inventory = null;
     updateInventoryUI();
     drawOrUpdateCell({ i, j });
@@ -378,7 +414,11 @@ function onCellClick(i: number, j: number) {
     inventory.value === cellToken.value
   ) {
     const newValue = inventory.value * 2;
-    modifiedCells.set(key, { value: newValue });
+    // Store crafted token in memento
+    modifiedCells.set(key, {
+      token: { value: newValue },
+      timestamp: Date.now(),
+    });
     inventory = null;
     updateInventoryUI();
     drawOrUpdateCell({ i, j });
