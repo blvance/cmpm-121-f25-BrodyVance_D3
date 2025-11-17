@@ -122,3 +122,39 @@ These are the practical changes applied to the codebase while implementing D3.c 
 Notes:
 
 - These edits implement the D3.c design (Flyweight + Memento) and make it straightforward to add full persistence in a following assignment. The modified-cells Map is the authoritative source of modified state while the visible Leaflet layers are rebuilt on each draw.
+
+## Code Quality Improvements
+
+### Recent Code Smell Fixes
+
+1. **CSS Styling Externalized**
+   - Moved all inline CSS styles from JavaScript to `style.css`
+   - Created dedicated CSS classes for:
+     - `#movementControls` - D-pad button container and styling
+     - `#victoryOverlay` - Full-screen victory display
+     - `.notification` - Temporary notification popups
+   - Improved separation of concerns and maintainability
+
+2. **Movement Controls Refactored**
+   - Replaced verbose button creation with array-driven approach
+   - Used `movementButtons` array with label/callback/gridArea properties
+   - Reduced code duplication and improved readability
+   - Made it easier to add/modify movement controls
+
+3. **Magic Numbers Eliminated**
+   - Replaced magic number `3` with `INTERACT_RADIUS` constant
+   - Replaced magic number `2` with `VIEWPORT_BUFFER` constant
+   - All numeric literals now have descriptive constant names
+   - Improved code maintainability and documentation
+
+4. **Error Handling Improved**
+   - Removed non-null assertion operator (`!`) in `removeCellLayer()`
+   - Changed from `has()` + `get()!` pattern to simple truthiness check
+   - More defensive code that handles edge cases gracefully
+   - Follows TypeScript best practices without unnecessary assertions
+
+5. **Unused Variables Check**
+   - Ran comprehensive linting scan
+   - Confirmed no unused variables in codebase
+   - All declared variables are actively used
+   - Code follows strict TypeScript and Deno linting rules

@@ -16,9 +16,7 @@ import luck from "./_luck.ts";
    ----------------------- */
 
 // UI containers
-const controlPanelDiv = document.createElement("div");
-controlPanelDiv.id = "controlPanel";
-document.body.append(controlPanelDiv);
+// control panel left for future controls (not yet used) — removed to avoid unused var
 
 const mapDiv = document.createElement("div");
 mapDiv.id = "map";
@@ -28,20 +26,12 @@ const statusPanelDiv = document.createElement("div");
 statusPanelDiv.id = "statusPanel";
 document.body.append(statusPanelDiv);
 
-// Classroom (player) location
-const CLASSROOM_LATLNG = leaflet.latLng(
-  36.997936938057016,
-  -122.05703507501151,
-);
-
 // Gameplay constants
 const GAMEPLAY_ZOOM_LEVEL = 19;
 const TILE_DEGREES = 1e-4; // cell size in degrees ~ size of a house
 const INTERACT_RADIUS = 3; // in cells (Chebyshev distance); player can only interact with cells within this range
-// Step 6: Crafting & victory
 const TARGET_VALUE = 1024; // value to trigger victory
-// Grid rendering buffer (how many cells beyond viewport to keep)
-const VIEWPORT_BUFFER = 2;
+const VIEWPORT_BUFFER = 2; // extra cells beyond viewport to draw
 
 // Visual constants (extracted magic numbers)
 const TOKEN_SPAWN_THRESHOLD = 0.96;
@@ -65,7 +55,8 @@ const NOTIFICATION_DURATION_MS = 2500;
    ----------------------- */
 
 const map = leaflet.map(mapDiv, {
-  center: CLASSROOM_LATLNG,
+  // Center on Null Island (0,0) — player spawn
+  center: leaflet.latLng(0, 0),
   zoom: GAMEPLAY_ZOOM_LEVEL,
   minZoom: GAMEPLAY_ZOOM_LEVEL,
   maxZoom: GAMEPLAY_ZOOM_LEVEL,
@@ -269,8 +260,8 @@ function updateInventoryUI() {
 
 // Layer management
 function removeCellLayer(key: CellKey) {
-  if (cellLayers.has(key)) {
-    const layer = cellLayers.get(key)!;
+  const layer = cellLayers.get(key);
+  if (layer) {
     map.removeLayer(layer);
     cellLayers.delete(key);
   }
@@ -286,14 +277,21 @@ function getCellBounds(i: number, j: number): leaflet.LatLngBounds {
   );
 }
 
+/**
+ * Compute cell visuals. If the cell is out of range we dim the fillOpacity
+ * to indicate it is currently unreachable by the player.
+ */
 function getCellVisuals(
   token: Token,
-  _inRange: boolean,
+  inRange: boolean,
 ): { color: string; fillOpacity: number } {
-  return {
-    color: token ? CELL_COLOR_WITH_TOKEN : CELL_COLOR_EMPTY,
-    fillOpacity: token ? CELL_FILL_OPACITY_WITH_TOKEN : CELL_FILL_OPACITY_EMPTY,
-  };
+  const baseColor = token ? CELL_COLOR_WITH_TOKEN : CELL_COLOR_EMPTY;
+  const baseOpacity = token
+    ? CELL_FILL_OPACITY_WITH_TOKEN
+    : CELL_FILL_OPACITY_EMPTY;
+  // Reduce opacity when out of range so the player knows it's not interactable
+  const fillOpacity = inRange ? baseOpacity : baseOpacity * 0.5;
+  return { color: baseColor, fillOpacity };
 }
 
 // Helper: compute the set of cell keys that should remain visible
@@ -302,7 +300,7 @@ function computeVisibleKeys(
   maxI: number,
   minJ: number,
   maxJ: number,
-  buffer = 2,
+  buffer = VIEWPORT_BUFFER,
 ) {
   const keys = new Set<string>();
   for (let i = minI - buffer; i <= maxI + buffer; i++) {
@@ -322,52 +320,30 @@ function pruneInvisibleCells(visibleKeys: Set<string>) {
   }
 }
 
-// Export modifiedCells to a JSON-serializable object.
-// Useful for debugging and for implementing persistent storage in D3.d.
-function _exportModifiedCells(): Record<
-  string,
-  { token: number | null; timestamp?: number }
-> {
-  const out: Record<string, { token: number | null; timestamp?: number }> = {};
-  for (const [key, m] of modifiedCells.entries()) {
-    const ts = m.timestamp === undefined ? undefined : m.timestamp;
-    if (ts === undefined) {
-      out[key] = { token: m.token ? m.token.value ?? null : null };
-    } else {
-      out[key] = {
-        token: m.token ? m.token.value ?? null : null,
-        timestamp: ts,
-      };
-    }
-  }
-  return out;
-}
-
-// Import a previously exported modified-cells object into the in-memory Map.
-function _importModifiedCells(
-  data: Record<string, { token: number | null; timestamp?: number }>,
-) {
-  modifiedCells.clear();
-  for (const key of Object.keys(data)) {
-    const entry = data[key];
-    const token: Token = entry.token == null ? null : { value: entry.token };
-    modifiedCells.set(key, { token, timestamp: entry.timestamp });
-  }
+/**
+ * Apply a state change to a cell and refresh visuals + UI.
+ * Avoids repeating the common mutation -> UI -> redraw steps.
+ */
+function applyCellChange(cell: Cell, token: Token | null) {
+  const key = cellKey(cell.i, cell.j);
+  modifiedCells.set(key, { token, timestamp: Date.now() });
+  updateInventoryUI();
+  drawOrUpdateCell(cell);
 }
 
 function applyCellHoverStyle(
   rect: leaflet.Rectangle,
-  _inRange: boolean,
+  inRange: boolean,
   isHovering: boolean,
 ): void {
   if (isHovering) {
     rect.setStyle({
-      weight: _inRange ? CELL_WEIGHT_HOVER : CELL_WEIGHT_OUT_OF_RANGE,
-      dashArray: _inRange ? undefined : CELL_DASH_OUT_OF_RANGE,
+      weight: inRange ? CELL_WEIGHT_HOVER : CELL_WEIGHT_OUT_OF_RANGE,
+      dashArray: inRange ? undefined : CELL_DASH_OUT_OF_RANGE,
     });
   } else {
     rect.setStyle({
-      weight: _inRange ? CELL_WEIGHT_IN_RANGE : CELL_WEIGHT_OUT_OF_RANGE,
+      weight: inRange ? CELL_WEIGHT_IN_RANGE : CELL_WEIGHT_OUT_OF_RANGE,
       dashArray: undefined,
     });
   }
@@ -379,7 +355,6 @@ function applyCellHoverStyle(
 
 // Cell click handling
 function onCellClick(i: number, j: number) {
-  const key = cellKey(i, j);
   if (!isInRange(i, j)) {
     // Out of range — do nothing (could show a small toast)
     flashCell(i, j);
@@ -392,19 +367,16 @@ function onCellClick(i: number, j: number) {
   if (inventory == null && cellToken != null) {
     inventory = cellToken;
     // Mark cell as emptied: store memento with token=null and timestamp
-    modifiedCells.set(key, { token: null, timestamp: Date.now() });
-    updateInventoryUI();
-    drawOrUpdateCell({ i, j });
+    applyCellChange({ i, j }, null);
     return;
   }
 
   // Place into empty cell
   if (inventory != null && cellToken == null) {
     // Persist the placed token as a compact memento
-    modifiedCells.set(key, { token: inventory, timestamp: Date.now() });
-    inventory = null;
-    updateInventoryUI();
-    drawOrUpdateCell({ i, j });
+    const tokenToPlace = inventory;
+    inventory = null; // clear inventory before UI update
+    applyCellChange({ i, j }, tokenToPlace);
     return;
   }
 
@@ -415,13 +387,8 @@ function onCellClick(i: number, j: number) {
   ) {
     const newValue = inventory.value * 2;
     // Store crafted token in memento
-    modifiedCells.set(key, {
-      token: { value: newValue },
-      timestamp: Date.now(),
-    });
     inventory = null;
-    updateInventoryUI();
-    drawOrUpdateCell({ i, j });
+    applyCellChange({ i, j }, { value: newValue });
     // Step 6: Check for victory at TARGET_VALUE (1024)
     if (newValue >= TARGET_VALUE) {
       showVictory();
@@ -452,47 +419,25 @@ function flashCell(i: number, j: number) {
   }, FLASH_DURATION_MS);
 }
 
-// Notifications & messages
+// Victory overlay
+function showVictory() {
+  const victoryOverlay = document.createElement("div");
+  victoryOverlay.id = "victoryOverlay";
+
+  const victoryBox = document.createElement("div");
+  victoryBox.innerText = `🎉 Victory! You crafted ${TARGET_VALUE}! 🎉`;
+
+  victoryOverlay.append(victoryBox);
+  document.body.append(victoryOverlay);
+}
+
+// Notification
 function showNotification(text: string) {
   const notification = document.createElement("div");
   notification.className = "notification";
   notification.innerText = text;
   document.body.append(notification);
   setTimeout(() => notification.remove(), NOTIFICATION_DURATION_MS);
-}
-
-// Step 6: Display victory UI when player reaches TARGET_VALUE (1024)
-function showVictory() {
-  const victoryOverlay = document.createElement("div");
-  victoryOverlay.id = "victoryOverlay";
-  victoryOverlay.style.cssText = `
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background: rgba(0, 0, 0, 0.7);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    z-index: 10000;
-  `;
-
-  const victoryBox = document.createElement("div");
-  victoryBox.style.cssText = `
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    color: white;
-    padding: 40px 60px;
-    border-radius: 16px;
-    text-align: center;
-    font-size: 36px;
-    font-weight: bold;
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
-  `;
-  victoryBox.innerText = `🎉 Victory! You crafted ${TARGET_VALUE}! 🎉`;
-
-  victoryOverlay.append(victoryBox);
-  document.body.append(victoryOverlay);
 }
 
 /* -----------------------
@@ -502,47 +447,24 @@ function showVictory() {
 // Movement controls: D-pad buttons
 const movementDiv = document.createElement("div");
 movementDiv.id = "movementControls";
-movementDiv.style.cssText =
-  "position: absolute; bottom: 20px; right: 20px; z-index: 1000; display: grid; grid-template-columns: repeat(3, 50px); gap: 4px; grid-template-areas: '. up .' 'left down right';";
 
-const createButton = (
-  label: string,
-  callback: () => void,
-  gridArea: string,
-) => {
+// Define movement buttons with their properties
+const movementButtons = [
+  { label: "↑", callback: () => movePlayer(1, 0), gridArea: "up" },
+  { label: "↓", callback: () => movePlayer(-1, 0), gridArea: "down" },
+  { label: "→", callback: () => movePlayer(0, 1), gridArea: "right" },
+  { label: "←", callback: () => movePlayer(0, -1), gridArea: "left" },
+];
+
+// Create and append buttons dynamically
+movementButtons.forEach(({ label, callback, gridArea }) => {
   const btn = document.createElement("button");
   btn.innerText = label;
-  btn.style.cssText = `
-    grid-area: ${gridArea};
-    padding: 8px;
-    font-size: 18px;
-    font-weight: 600;
-    cursor: pointer;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    color: white;
-    border: none;
-    border-radius: 8px;
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
-    transition: all 0.2s ease;
-  `;
+  btn.style.gridArea = gridArea;
   btn.addEventListener("click", callback);
-  btn.addEventListener("mouseover", () => {
-    btn.style.transform = "scale(1.1)";
-    btn.style.boxShadow = "0 6px 12px rgba(0, 0, 0, 0.3)";
-  });
-  btn.addEventListener("mouseout", () => {
-    btn.style.transform = "scale(1)";
-    btn.style.boxShadow = "0 4px 8px rgba(0, 0, 0, 0.2)";
-  });
-  return btn;
-};
+  movementDiv.append(btn);
+});
 
-const moveNorthBtn = createButton("↑", () => movePlayer(1, 0), "up");
-const moveSouthBtn = createButton("↓", () => movePlayer(-1, 0), "down");
-const moveEastBtn = createButton("→", () => movePlayer(0, 1), "right");
-const moveWestBtn = createButton("←", () => movePlayer(0, -1), "left");
-
-movementDiv.append(moveNorthBtn, moveSouthBtn, moveEastBtn, moveWestBtn);
 mapDiv.parentElement?.insertBefore(movementDiv, mapDiv);
 
 // Map event listeners
