@@ -185,3 +185,38 @@ Expand the game to support player movement across the map and an earth-spanning 
 - Separate cell identity (i, j pair) from visual representation (Leaflet rectangle)
 - Consider storing player position as `playerCell: Cell` to simplify in-range checks
 - Optional: add keyboard shortcuts (arrow keys) or buttons for movement simulation
+
+---
+
+## D3.C: — Object Persistence
+
+Goal: Ensure that cells on the map persist their state even after scrolling off-screen, while minimizing memory usage.
+
+### Flyweight Cell Representation
+
+- The base grid is not stored as a full matrix.
+- Unmodified cells are implicit and require no memory.
+- A JavaScript Map will store only modified cells.
+- Key: a string or tuple representing cell coordinates (i, j)
+- Value: a token object or cell-state object
+- This allows large areas of unexplored/unchanged map to consume zero memory.
+
+### Memento-Style State Saving
+
+- When a cell is modified (token collected, changed, etc.), create a “memento” object capturing its state.
+- Store this memento in the modifiedCells Map.
+- When the cell scrolls off-screen, nothing visible needs to be updated—its state is already saved.
+
+### Restoring State on Re-Render
+
+- During map movement, clear the visible layer.
+- Recompute the set of visible cells based on the player’s fixed position and the map offset.
+- For each visible cell:
+  If (i,j) exists in modifiedCells, restore its saved state.
+  Otherwise, render the default unmodified version.
+
+### Benefits of This Approach
+
+- Memory efficient because only modified cells are stored.
+- Simple redraw logic: no need to track moving DOM elements.
+- Prepares for D3.d since persisting a single Map will be straightforward.
