@@ -49,6 +49,10 @@ const CELL_WEIGHT_HOVER = 3;
 const CELL_DASH_OUT_OF_RANGE = "3";
 const FLASH_DURATION_MS = 300;
 const NOTIFICATION_DURATION_MS = 2500;
+const CLASSROOM_LATLNG = leaflet.latLng(
+  36.997936938057016,
+  -122.05703507501151,
+);
 
 /* -----------------------
    Map initialization
@@ -85,10 +89,11 @@ type Cell = { i: number; j: number };
 // Memento stored for modified cells (Flyweight + Memento pattern)
 type CellMemento = { token?: Token | null; timestamp?: number | undefined };
 
-// Player starts at Null Island (0, 0)
 // deno-lint-ignore prefer-const
-let playerCell: Cell = { i: 0, j: 0 };
-
+let playerCell: Cell = latLngToCell(
+  CLASSROOM_LATLNG.lat,
+  CLASSROOM_LATLNG.lng,
+);
 // Create marker at player position
 // deno-lint-ignore prefer-const
 let playerMarker = leaflet.marker(cellToLatLng(playerCell)).addTo(map);
