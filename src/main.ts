@@ -16,8 +16,6 @@ import luck from "./_luck.ts";
    ----------------------- */
 
 // UI containers
-// control panel left for future controls (not yet used) — removed to avoid unused var
-
 const mapDiv = document.createElement("div");
 mapDiv.id = "map";
 document.body.append(mapDiv);
@@ -30,14 +28,13 @@ const controlPanelDiv = document.createElement("div");
 controlPanelDiv.id = "controlPanel";
 document.body.append(controlPanelDiv);
 
-// Gameplay constants
 const GAMEPLAY_ZOOM_LEVEL = 19;
-const TILE_DEGREES = 1e-4; // cell size in degrees ~ size of a house
-const INTERACT_RADIUS = 3; // in cells (Chebyshev distance); player can only interact with cells within this range
-const TARGET_VALUE = 1024; // value to trigger victory
-const VIEWPORT_BUFFER = 2; // extra cells beyond viewport to draw
+const TILE_DEGREES = 1e-4;
+const INTERACT_RADIUS = 3;
+const TARGET_VALUE = 1024;
+const VIEWPORT_BUFFER = 2;
 
-// Visual constants (extracted magic numbers)
+// Visual styling constants
 const TOKEN_SPAWN_THRESHOLD = 0.96;
 const TOKEN_VALUE_16_THRESHOLD = 0.997;
 const TOKEN_VALUE_8_THRESHOLD = 0.99;
@@ -53,6 +50,7 @@ const CELL_WEIGHT_HOVER = 3;
 const CELL_DASH_OUT_OF_RANGE = "3";
 const FLASH_DURATION_MS = 300;
 const NOTIFICATION_DURATION_MS = 2500;
+const STATUS_UPDATE_INTERVAL_MS = 10000;
 const CLASSROOM_LATLNG = leaflet.latLng(
   36.997936938057016,
   -122.05703507501151,
@@ -63,7 +61,6 @@ const CLASSROOM_LATLNG = leaflet.latLng(
    ----------------------- */
 
 const map = leaflet.map(mapDiv, {
-  // Center on Null Island (0,0) — player spawn
   center: leaflet.latLng(0, 0),
   zoom: GAMEPLAY_ZOOM_LEVEL,
   minZoom: GAMEPLAY_ZOOM_LEVEL,
@@ -80,14 +77,35 @@ leaflet
   })
   .addTo(map);
 
-statusPanelDiv.innerHTML = `
-  <div id="inventoryDisplay">Inventory: empty</div>
-  <div id="statusIndicators">
-    <span id="movementModeIndicator" class="indicator">🎮 Button Mode</span>
-    <span id="geolocationIndicator" class="indicator">📡 GPS Off</span>
-    <span id="saveIndicator" class="indicator">💾 No saves yet</span>
-  </div>
-`;
+// Create status panel elements
+const inventoryDisplay = document.createElement("div");
+inventoryDisplay.id = "inventoryDisplay";
+inventoryDisplay.innerText = "Inventory: empty";
+
+const statusIndicators = document.createElement("div");
+statusIndicators.id = "statusIndicators";
+
+const movementModeIndicator = document.createElement("span");
+movementModeIndicator.id = "movementModeIndicator";
+movementModeIndicator.className = "indicator";
+movementModeIndicator.textContent = "🎮 Button Mode";
+
+const geolocationIndicator = document.createElement("span");
+geolocationIndicator.id = "geolocationIndicator";
+geolocationIndicator.className = "indicator";
+geolocationIndicator.textContent = "📡 GPS Off";
+
+const saveIndicator = document.createElement("span");
+saveIndicator.id = "saveIndicator";
+saveIndicator.className = "indicator";
+saveIndicator.textContent = "💾 No saves yet";
+
+statusIndicators.append(
+  movementModeIndicator,
+  geolocationIndicator,
+  saveIndicator,
+);
+statusPanelDiv.append(inventoryDisplay, statusIndicators);
 
 /* -----------------------
    State & helpers
@@ -234,12 +252,13 @@ class ButtonMovementController implements MovementController {
       btn.innerText = label;
       btn.style.gridArea = gridArea;
       const handler = () => {
+        if (!this.moveCallback) return;
         const newCell = {
           i: playerCell.i + di,
           j: playerCell.j + dj,
         };
         const newLatLng = cellToLatLng(newCell);
-        this.moveCallback!(newLatLng.lat, newLatLng.lng);
+        this.moveCallback(newLatLng.lat, newLatLng.lng);
       };
       btn.addEventListener("click", handler);
       this.buttonHandlers.push({ button: btn, handler });
@@ -276,9 +295,10 @@ class ButtonMovementController implements MovementController {
           return;
       }
       e.preventDefault();
+      if (!this.moveCallback) return;
       const newCell = { i: playerCell.i + di, j: playerCell.j + dj };
       const newLatLng = cellToLatLng(newCell);
-      this.moveCallback!(newLatLng.lat, newLatLng.lng);
+      this.moveCallback(newLatLng.lat, newLatLng.lng);
     };
     globalThis.addEventListener("keydown", this.keyHandler);
   }
@@ -320,10 +340,11 @@ class GeolocationMovementController implements MovementController {
 
     this.watchId = navigator.geolocation.watchPosition(
       (position) => {
+        if (!this.moveCallback) return;
         const { latitude, longitude } = position.coords;
         geolocationStatus = "active";
         updateStatusIndicators();
-        this.moveCallback!(latitude, longitude);
+        this.moveCallback(latitude, longitude);
       },
       (error) => {
         let message = "Geolocation error";
@@ -364,18 +385,14 @@ let playerCell: Cell = latLngToCell(
   CLASSROOM_LATLNG.lat,
   CLASSROOM_LATLNG.lng,
 );
-// Create marker at player position
 const playerMarker = leaflet.marker(cellToLatLng(playerCell)).addTo(map);
 playerMarker.bindTooltip("You are here", { permanent: false });
 let inventory: Token = null;
 
-// Track player-made modifications (key -> small memento). Only modified cells are stored.
 const modifiedCells = new Map<CellKey, CellMemento>();
-
-// Track drawn layers so we can update/remove them efficiently
 const cellLayers = new Map<CellKey, leaflet.Rectangle>();
 
-// Movement mode tracking
+// Movement state
 let currentMovementMode: "buttons" | "geolocation" = "buttons";
 let geolocationStatus: "disabled" | "active" | "error" = "disabled";
 let lastSaveTime: number | null = null;
@@ -385,31 +402,23 @@ let lastSaveTime: number | null = null;
    ----------------------- */
 
 function updateStatusIndicators() {
-  const modeIndicator = document.getElementById("movementModeIndicator");
-  const geoIndicator = document.getElementById("geolocationIndicator");
-  const saveIndicator = document.getElementById("saveIndicator");
+  movementModeIndicator.textContent = currentMovementMode === "buttons"
+    ? "🎮 Button Mode"
+    : "📍 GPS Mode";
+  movementModeIndicator.className = "indicator active";
 
-  if (modeIndicator) {
-    modeIndicator.textContent = currentMovementMode === "buttons"
-      ? "🎮 Button Mode"
-      : "📍 GPS Mode";
-    modeIndicator.className = "indicator active";
+  if (geolocationStatus === "active") {
+    geolocationIndicator.textContent = "📡 GPS Active";
+    geolocationIndicator.className = "indicator active";
+  } else if (geolocationStatus === "error") {
+    geolocationIndicator.textContent = "❌ GPS Error";
+    geolocationIndicator.className = "indicator error";
+  } else {
+    geolocationIndicator.textContent = "📡 GPS Off";
+    geolocationIndicator.className = "indicator";
   }
 
-  if (geoIndicator) {
-    if (geolocationStatus === "active") {
-      geoIndicator.textContent = "📡 GPS Active";
-      geoIndicator.className = "indicator active";
-    } else if (geolocationStatus === "error") {
-      geoIndicator.textContent = "❌ GPS Error";
-      geoIndicator.className = "indicator error";
-    } else {
-      geoIndicator.textContent = "📡 GPS Off";
-      geoIndicator.className = "indicator";
-    }
-  }
-
-  if (saveIndicator && lastSaveTime) {
+  if (lastSaveTime) {
     const elapsed = Math.floor((Date.now() - lastSaveTime) / 1000);
     if (elapsed < 5) {
       saveIndicator.textContent = "💾 Saved just now";
@@ -429,14 +438,12 @@ function updateStatusIndicators() {
    ----------------------- */
 
 function latLngToCell(lat: number, lng: number): Cell {
-  // Use floor so negative coordinates map consistently
   const i = Math.floor(lat / TILE_DEGREES);
   const j = Math.floor(lng / TILE_DEGREES);
   return { i, j };
 }
 
 function cellToLatLng(cell: Cell): leaflet.LatLng {
-  // Convert cell coordinates back to lat/lng (center of cell)
   const lat = (cell.i + 0.5) * TILE_DEGREES;
   const lng = (cell.j + 0.5) * TILE_DEGREES;
   return leaflet.latLng(lat, lng);
@@ -447,10 +454,8 @@ function cellKey(i: number, j: number): CellKey {
 }
 
 function initialTokenForCell(i: number, j: number): Token {
-  // Deterministic pseudo-random per cell
-  const r = luck([i, j, "token"].toString()); // 0..1
-  if (r < TOKEN_SPAWN_THRESHOLD) return null; // no token
-  // Map rarer values to higher r
+  const r = luck([i, j, "token"].toString());
+  if (r < TOKEN_SPAWN_THRESHOLD) return null;
   if (r > TOKEN_VALUE_16_THRESHOLD) return { value: 16 };
   if (r > TOKEN_VALUE_8_THRESHOLD) return { value: 8 };
   if (r > TOKEN_VALUE_4_THRESHOLD) return { value: 4 };
@@ -459,37 +464,25 @@ function initialTokenForCell(i: number, j: number): Token {
 
 function getCellToken(i: number, j: number): Token {
   const key = cellKey(i, j);
-  if (modifiedCells.has(key)) {
-    // modifiedCells stores a small memento; memento.token can be Token or null
-    const m = modifiedCells.get(key) as CellMemento | undefined;
-    return m?.token ?? null;
+  const memento = modifiedCells.get(key);
+  if (memento) {
+    return memento.token ?? null;
   }
   return initialTokenForCell(i, j);
 }
 
-// Step 4: Check if a cell is within interaction range of the player's current position
 function isInRange(i: number, j: number, radius = INTERACT_RADIUS) {
   const dx = Math.abs(i - playerCell.i);
   const dy = Math.abs(j - playerCell.j);
-  // Chebyshev distance: max of absolute differences ensures square interaction zone
   return Math.max(dx, dy) <= radius;
 }
 
 function movePlayerToLatLng(lat: number, lng: number) {
-  // Update player cell from lat/lng coordinates
   playerCell = latLngToCell(lat, lng);
-
-  // Update marker position
   const newLatLng = leaflet.latLng(lat, lng);
   playerMarker.setLatLng(newLatLng);
-
-  // Center map on player
   map.panTo(newLatLng, { animate: false });
-
-  // Redraw grid to show new in-range cells
   drawVisibleGrid();
-
-  // Save state after movement
   debouncedSave();
 }
 
@@ -497,14 +490,11 @@ function movePlayerToLatLng(lat: number, lng: number) {
    Drawing & UI functions
    ----------------------- */
 
-// Grid rendering
 function drawVisibleGrid() {
-  // Compute cell ranges that cover the current viewport
   const bounds = map.getBounds();
   const sw = bounds.getSouthWest();
   const ne = bounds.getNorthEast();
 
-  // Compute integer cell coordinates for SW and NE corners once
   const swCell = latLngToCell(sw.lat, sw.lng);
   const neCell = latLngToCell(ne.lat, ne.lng);
   const minI = swCell.i;
@@ -512,9 +502,6 @@ function drawVisibleGrid() {
   const minJ = swCell.j;
   const maxJ = neCell.j;
 
-  // Step 5: State persistence (cells forget off-screen)
-  // When cells leave visibility range, clear their modifiedCells entries
-  // so they revert to initial deterministic state on re-entry.
   const visibleKeys = computeVisibleKeys(
     minI,
     maxI,
@@ -523,10 +510,8 @@ function drawVisibleGrid() {
     VIEWPORT_BUFFER,
   );
 
-  // Remove layers and clear state for cells no longer visible
   pruneInvisibleCells(visibleKeys);
 
-  // Draw visible cells
   for (let i = minI; i <= maxI; i++) {
     for (let j = minJ; j <= maxJ; j++) {
       drawOrUpdateCell({ i, j });
@@ -534,16 +519,12 @@ function drawVisibleGrid() {
   }
 }
 
-function drawOrUpdateCell(cell: Cell) {
-  const key = cellKey(cell.i, cell.j);
-  removeCellLayer(key);
-
-  // Compute bounds for this cell
+function createCellRectangle(
+  cell: Cell,
+  token: Token,
+  inRange: boolean,
+): leaflet.Rectangle {
   const bounds = getCellBounds(cell.i, cell.j);
-
-  // Determine token and style
-  const token = getCellToken(cell.i, cell.j);
-  const inRange = isInRange(cell.i, cell.j);
   const { color, fillOpacity } = getCellVisuals(token, inRange);
 
   const rect = leaflet.rectangle(bounds, {
@@ -553,9 +534,10 @@ function drawOrUpdateCell(cell: Cell) {
     interactive: true,
   });
 
-  rect.addTo(map);
+  return rect;
+}
 
-  // Show token value as a permanent centered tooltip if present
+function attachCellTooltip(rect: leaflet.Rectangle, token: Token): void {
   if (token) {
     rect.bindTooltip(`${token.value}`, {
       permanent: true,
@@ -565,28 +547,40 @@ function drawOrUpdateCell(cell: Cell) {
   } else {
     rect.unbindTooltip?.();
   }
+}
 
-  // Clickable handler
+function attachCellHandlers(
+  rect: leaflet.Rectangle,
+  cell: Cell,
+  inRange: boolean,
+): void {
   rect.on("click", () => onCellClick(cell.i, cell.j));
-
-  // Hover effects for in-range hints
   rect.on("mouseover", () => applyCellHoverStyle(rect, inRange, true));
   rect.on("mouseout", () => applyCellHoverStyle(rect, inRange, false));
+}
+
+function drawOrUpdateCell(cell: Cell) {
+  const key = cellKey(cell.i, cell.j);
+  removeCellLayer(key);
+
+  const token = getCellToken(cell.i, cell.j);
+  const inRange = isInRange(cell.i, cell.j);
+
+  const rect = createCellRectangle(cell, token, inRange);
+  rect.addTo(map);
+
+  attachCellTooltip(rect, token);
+  attachCellHandlers(rect, cell, inRange);
 
   cellLayers.set(key, rect);
 }
 
-// Inventory UI
 function updateInventoryUI() {
-  const inventoryDisplay = document.getElementById("inventoryDisplay");
-  if (inventoryDisplay) {
-    inventoryDisplay.innerText = inventory
-      ? `Inventory: ${inventory.value}`
-      : "Inventory: empty";
-  }
+  inventoryDisplay.innerText = inventory
+    ? `Inventory: ${inventory.value}`
+    : "Inventory: empty";
 }
 
-// Layer management
 function removeCellLayer(key: CellKey) {
   const layer = cellLayers.get(key);
   if (layer) {
@@ -595,7 +589,6 @@ function removeCellLayer(key: CellKey) {
   }
 }
 
-// Cell visuals & styling
 function getCellBounds(i: number, j: number): leaflet.LatLngBounds {
   const south = i * TILE_DEGREES;
   const west = j * TILE_DEGREES;
@@ -605,24 +598,18 @@ function getCellBounds(i: number, j: number): leaflet.LatLngBounds {
   );
 }
 
-/**
- * Compute cell visuals. If the cell is out of range we dim the fillOpacity
- * to indicate it is currently unreachable by the player.
- */
 function getCellVisuals(
   token: Token,
   inRange: boolean,
 ): { color: string; fillOpacity: number } {
-  const baseColor = token ? CELL_COLOR_WITH_TOKEN : CELL_COLOR_EMPTY;
+  const color = token ? CELL_COLOR_WITH_TOKEN : CELL_COLOR_EMPTY;
   const baseOpacity = token
     ? CELL_FILL_OPACITY_WITH_TOKEN
     : CELL_FILL_OPACITY_EMPTY;
-  // Reduce opacity when out of range so the player knows it's not interactable
   const fillOpacity = inRange ? baseOpacity : baseOpacity * 0.5;
-  return { color: baseColor, fillOpacity };
+  return { color, fillOpacity };
 }
 
-// Helper: compute the set of cell keys that should remain visible
 function computeVisibleKeys(
   minI: number,
   maxI: number,
@@ -639,7 +626,6 @@ function computeVisibleKeys(
   return keys;
 }
 
-// Helper: remove layers and clear modified state for cells not in the visible set
 function pruneInvisibleCells(visibleKeys: Set<string>) {
   for (const key of Array.from(cellLayers.keys())) {
     if (!visibleKeys.has(key)) {
@@ -648,16 +634,12 @@ function pruneInvisibleCells(visibleKeys: Set<string>) {
   }
 }
 
-/**
- * Apply a state change to a cell and refresh visuals + UI.
- * Avoids repeating the common mutation -> UI -> redraw steps.
- */
 function applyCellChange(cell: Cell, token: Token | null) {
   const key = cellKey(cell.i, cell.j);
   modifiedCells.set(key, { token, timestamp: Date.now() });
   updateInventoryUI();
   drawOrUpdateCell(cell);
-  debouncedSave(); // Save state after cell modification
+  debouncedSave();
 }
 
 function applyCellHoverStyle(
@@ -682,43 +664,34 @@ function applyCellHoverStyle(
    Interaction logic
    ----------------------- */
 
-// Cell click handling
 function onCellClick(i: number, j: number) {
   if (!isInRange(i, j)) {
-    // Out of range — do nothing (could show a small toast)
     flashCell(i, j);
     return;
   }
 
   const cellToken = getCellToken(i, j);
 
-  // Pickup
   if (inventory == null && cellToken != null) {
     inventory = cellToken;
-    // Mark cell as emptied: store memento with token=null and timestamp
     applyCellChange({ i, j }, null);
     return;
   }
 
-  // Place into empty cell
   if (inventory != null && cellToken == null) {
-    // Persist the placed token as a compact memento
     const tokenToPlace = inventory;
-    inventory = null; // clear inventory before UI update
+    inventory = null;
     applyCellChange({ i, j }, tokenToPlace);
     return;
   }
 
-  // Craft (equal values)
   if (
     inventory != null && cellToken != null &&
     inventory.value === cellToken.value
   ) {
     const newValue = inventory.value * 2;
-    // Store crafted token in memento
     inventory = null;
     applyCellChange({ i, j }, { value: newValue });
-    // Step 6: Check for victory at TARGET_VALUE (1024)
     if (newValue >= TARGET_VALUE) {
       showVictory();
     } else {
@@ -727,8 +700,6 @@ function onCellClick(i: number, j: number) {
     return;
   }
 
-  // Otherwise: either inventory full and trying to pick, or mismatch — no action
-  // Optionally show a subtle UI hint
   flashCell(i, j);
 }
 
@@ -736,19 +707,16 @@ function onCellClick(i: number, j: number) {
    Small UI helpers
    ----------------------- */
 
-// Visual feedback
 function flashCell(i: number, j: number) {
   const key = cellKey(i, j);
   const layer = cellLayers.get(key);
   if (!layer) return;
   layer.setStyle({ color: CELL_COLOR_INVALID });
   setTimeout(() => {
-    // Revert by redrawing with consistent style
     drawOrUpdateCell({ i, j });
   }, FLASH_DURATION_MS);
 }
 
-// Victory overlay
 function showVictory() {
   const victoryOverlay = document.createElement("div");
   victoryOverlay.id = "victoryOverlay";
@@ -760,7 +728,6 @@ function showVictory() {
   document.body.append(victoryOverlay);
 }
 
-// Notification
 function showNotification(text: string) {
   const notification = document.createElement("div");
   notification.className = "notification";
@@ -773,41 +740,32 @@ function showNotification(text: string) {
    Startup wiring
    ----------------------- */
 
-// Map event listeners
 map.on("moveend", () => drawVisibleGrid());
 
-// Load saved game state if available
 const stateLoaded = loadGameState();
 
-// Update marker and map if state was loaded
 if (stateLoaded) {
   const startLatLng = cellToLatLng(playerCell);
   playerMarker.setLatLng(startLatLng);
   map.setView(startLatLng, GAMEPLAY_ZOOM_LEVEL);
 }
 
-// Initialize movement controllers
 const buttonController = new ButtonMovementController();
 const geoController = new GeolocationMovementController();
 let activeController: MovementController = buttonController;
 
-// Set up movement callback for both controllers
-buttonController.onMove((lat: number, lng: number) => {
+const handleMovement = (lat: number, lng: number) => {
   movePlayerToLatLng(lat, lng);
-});
+};
 
-geoController.onMove((lat: number, lng: number) => {
-  movePlayerToLatLng(lat, lng);
-});
+buttonController.onMove(handleMovement);
+geoController.onMove(handleMovement);
 
-// Function to switch between movement modes
 function switchMovementMode(mode: "buttons" | "geolocation") {
   if (mode === currentMovementMode) return;
 
-  // Disable current controller
   activeController.disable();
 
-  // Switch to new controller
   if (mode === "geolocation") {
     activeController = geoController;
     currentMovementMode = "geolocation";
@@ -817,12 +775,10 @@ function switchMovementMode(mode: "buttons" | "geolocation") {
     geolocationStatus = "disabled";
   }
 
-  // Enable new controller
   activeController.enable();
   updateStatusIndicators();
 }
 
-// Check for query string parameter to set initial mode
 const urlParams = new URLSearchParams(globalThis.location.search);
 const movementParam = urlParams.get("movement");
 if (movementParam === "geolocation") {
@@ -835,7 +791,6 @@ if (movementParam === "geolocation") {
 
 activeController.enable();
 
-// Create movement mode toggle button
 const toggleModeBtn = document.createElement("button");
 toggleModeBtn.innerText = "📍 Toggle GPS";
 toggleModeBtn.addEventListener("click", () => {
@@ -844,7 +799,6 @@ toggleModeBtn.addEventListener("click", () => {
 });
 controlPanelDiv.append(toggleModeBtn);
 
-// Create "New Game" button
 const newGameBtn = document.createElement("button");
 newGameBtn.innerText = "🔄 New Game";
 newGameBtn.addEventListener("click", () => {
@@ -855,11 +809,9 @@ newGameBtn.addEventListener("click", () => {
 });
 controlPanelDiv.append(newGameBtn);
 
-// Initialize game state
 map.panTo(cellToLatLng(playerCell), { animate: false });
 drawVisibleGrid();
 updateInventoryUI();
 updateStatusIndicators();
 
-// Update save indicator periodically
-setInterval(updateStatusIndicators, 10000); // Update every 10 seconds
+setInterval(updateStatusIndicators, STATUS_UPDATE_INTERVAL_MS);
