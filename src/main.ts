@@ -26,6 +26,10 @@ const statusPanelDiv = document.createElement("div");
 statusPanelDiv.id = "statusPanel";
 document.body.append(statusPanelDiv);
 
+const controlPanelDiv = document.createElement("div");
+controlPanelDiv.id = "controlPanel";
+document.body.append(controlPanelDiv);
+
 // Gameplay constants
 const GAMEPLAY_ZOOM_LEVEL = 19;
 const TILE_DEGREES = 1e-4; // cell size in degrees ~ size of a house
@@ -88,6 +92,98 @@ type Cell = { i: number; j: number };
 
 // Memento stored for modified cells (Flyweight + Memento pattern)
 type CellMemento = { token?: Token | null; timestamp?: number | undefined };
+
+/* -----------------------
+   LocalStorage Persistence
+   ----------------------- */
+
+interface GameState {
+  playerPosition: { lat: number; lng: number };
+  inventory: Token;
+  modifiedCells: Array<[string, CellMemento]>;
+  timestamp: number;
+}
+
+const SAVE_KEY = "geocoin_game_state";
+const SAVE_DEBOUNCE_MS = 1000;
+
+let saveTimeout: number | null = null;
+
+function saveGameState(): void {
+  try {
+    const state: GameState = {
+      playerPosition: {
+        lat: cellToLatLng(playerCell).lat,
+        lng: cellToLatLng(playerCell).lng,
+      },
+      inventory,
+      modifiedCells: Array.from(modifiedCells.entries()),
+      timestamp: Date.now(),
+    };
+
+    localStorage.setItem(SAVE_KEY, JSON.stringify(state));
+  } catch (error) {
+    if (error instanceof Error && error.name === "QuotaExceededError") {
+      showNotification("Storage quota exceeded - save failed");
+    } else {
+      console.error("Failed to save game state:", error);
+    }
+  }
+}
+
+function debouncedSave(): void {
+  if (saveTimeout !== null) {
+    clearTimeout(saveTimeout);
+  }
+  saveTimeout = setTimeout(() => {
+    saveGameState();
+    saveTimeout = null;
+  }, SAVE_DEBOUNCE_MS);
+}
+
+function loadGameState(): boolean {
+  try {
+    const saved = localStorage.getItem(SAVE_KEY);
+    if (!saved) return false;
+
+    const state = JSON.parse(saved) as GameState;
+
+    // Validate state structure
+    if (
+      !state.playerPosition ||
+      typeof state.playerPosition.lat !== "number" ||
+      typeof state.playerPosition.lng !== "number" ||
+      !Array.isArray(state.modifiedCells)
+    ) {
+      console.warn("Invalid save state structure");
+      return false;
+    }
+
+    // Restore player position
+    playerCell = latLngToCell(
+      state.playerPosition.lat,
+      state.playerPosition.lng,
+    );
+
+    // Restore inventory
+    inventory = state.inventory;
+
+    // Restore modified cells
+    modifiedCells.clear();
+    state.modifiedCells.forEach(([key, memento]) => {
+      modifiedCells.set(key, memento);
+    });
+
+    return true;
+  } catch (error) {
+    console.error("Failed to load game state:", error);
+    return false;
+  }
+}
+
+function clearGameState(): void {
+  localStorage.removeItem(SAVE_KEY);
+}
 
 /* -----------------------
    Movement Controller Interface (Facade Pattern)
@@ -326,6 +422,9 @@ function movePlayerToLatLng(lat: number, lng: number) {
 
   // Redraw grid to show new in-range cells
   drawVisibleGrid();
+
+  // Save state after movement
+  debouncedSave();
 }
 
 /* -----------------------
@@ -489,6 +588,7 @@ function applyCellChange(cell: Cell, token: Token | null) {
   modifiedCells.set(key, { token, timestamp: Date.now() });
   updateInventoryUI();
   drawOrUpdateCell(cell);
+  debouncedSave(); // Save state after cell modification
 }
 
 function applyCellHoverStyle(
@@ -607,6 +707,16 @@ function showNotification(text: string) {
 // Map event listeners
 map.on("moveend", () => drawVisibleGrid());
 
+// Load saved game state if available
+const stateLoaded = loadGameState();
+
+// Update marker and map if state was loaded
+if (stateLoaded) {
+  const startLatLng = cellToLatLng(playerCell);
+  playerMarker.setLatLng(startLatLng);
+  map.setView(startLatLng, GAMEPLAY_ZOOM_LEVEL);
+}
+
 // Initialize movement controller (default to button-based)
 const currentController: MovementController = new ButtonMovementController();
 
@@ -615,6 +725,17 @@ currentController.onMove((lat: number, lng: number) => {
 });
 
 currentController.enable();
+
+// Create "New Game" button
+const newGameBtn = document.createElement("button");
+newGameBtn.innerText = "🔄 New Game";
+newGameBtn.addEventListener("click", () => {
+  if (confirm("Start a new game? This will reset all progress.")) {
+    clearGameState();
+    location.reload();
+  }
+});
+controlPanelDiv.append(newGameBtn);
 
 // Initialize game state
 map.panTo(cellToLatLng(playerCell), { animate: false });
