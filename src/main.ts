@@ -539,10 +539,10 @@ function createCellRectangle(
 
 function attachCellTooltip(rect: leaflet.Rectangle, token: Token): void {
   if (token) {
-    rect.bindTooltip(`${token.value}`, {
+    rect.bindTooltip(`<strong>${token.value}</strong>`, {
       permanent: true,
       direction: "center",
-      className: "cell-label",
+      className: `cell-label cell-value-${token.value}`,
     });
   } else {
     rect.unbindTooltip?.();

@@ -329,3 +329,31 @@ Following the D3.d implementation, a comprehensive code quality pass was perform
 - Reduced duplication and improved reusability
 - More defensive programming with proper null checks
 - Cleaner, more professional codebase ready for production
+
+### Visual Enhancements - Color-Coded Token Display
+
+Following code quality improvements, visual polish was added to enhance gameplay clarity and aesthetics:
+
+**Implementation:**
+
+- Color-coded token labels based on value for instant visual identification
+- Bold text formatting for improved readability at all zoom levels
+- CSS-based styling using dynamic class names (`cell-value-{value}`)
+- Progressive color palette from cool to warm tones as values increase
+- Special gradient effect with glow for the highest value (1024)
+
+**Technical Details:**
+
+- Tooltip HTML uses `<strong>` tags for bold numbers
+- Dynamic CSS classes applied via `className: cell-value-${token.value}`
+- High contrast text colors ensure accessibility
+- Box shadow and border radius for polished appearance
+- Special glow effect for 1024 value using `box-shadow`
+
+**Benefits:**
+
+- Players can instantly identify token values by color without reading
+- Enhanced visual appeal and professional game aesthetics
+- Improved UX for quick scanning of available tokens on the map
+- Maintains accessibility with proper contrast ratios
+- Creates visual progression that reinforces crafting goals

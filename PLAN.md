@@ -379,3 +379,45 @@ Implement geolocation-based movement and persistent game state to enable real-wo
 - Player can switch between button and geolocation modes
 - All gameplay from D3.c still functions correctly
 - Graceful degradation when geolocation unavailable
+
+### Visual Enhancements
+
+**Goal**: Improve visual clarity and aesthetics of token display on the map
+
+**Implementation**:
+
+- Color-coded token labels based on value for quick visual identification
+- Bold text for improved readability across different zoom levels
+- CSS-based styling using dynamic class names (`cell-value-{value}`)
+- Special gradient effect for highest value (1024) with glow
+
+**Color Mapping**:
+
+- 2 → Blue (#3b82f6)
+- 4 → Green (#10b981)
+- 8 → Yellow (#fbbf24)
+- 16 → Orange (#f97316)
+- 32 → Red (#ef4444)
+- 64 → Purple (#a855f7)
+- 128 → Violet (#8b5cf6)
+- 256 → Indigo (#6366f1)
+- 512 → Pink (#ec4899)
+- 1024 → Gold gradient with glow effect
+
+**Benefits**:
+
+- Instant visual feedback on token values without needing to read numbers
+- Enhanced game aesthetics and polish
+- Better UX for quick scanning of available tokens on map
+- Maintains accessibility with high contrast text colors
+
+---
+
+### Style.css Refactoring Plan
+
+**Refactoring Checklist**:
+
+- [ ] Add CSS Variables (specific reusable colors, spacing, typography)
+- [ ] Extract Shared Classes (`.btn`, `.panel`, `.overlay`)
+- [ ] Remove !important (use better specificity)
+- [ ] Reorganize File (group by component with section comments)
