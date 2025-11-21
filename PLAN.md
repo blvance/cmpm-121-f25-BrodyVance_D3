@@ -220,3 +220,148 @@ Goal: Ensure that cells on the map persist their state even after scrolling off-
 - Memory efficient because only modified cells are stored.
 - Simple redraw logic: no need to track moving DOM elements.
 - Prepares for D3.d since persisting a single Map will be straightforward.
+
+---
+
+## D3.d: Gameplay Across Real-world Space and Time
+
+Implement geolocation-based movement and persistent game state to enable real-world gameplay.
+
+### Software Requirements
+
+1. **Geolocation API Integration**
+   - [ ] Use browser Geolocation API to control player movement
+   - [ ] Player position updates based on real-world device location
+   - [ ] Handle geolocation permissions and errors gracefully
+
+2. **Movement Control Abstraction (Facade Pattern)**
+   - [ ] Create a movement controller interface/facade
+   - [ ] Implement button-based movement controller (existing)
+   - [ ] Implement geolocation-based movement controller (new)
+   - [ ] Game logic should not depend on specific movement implementation
+   - [ ] Clean separation between movement input and game state updates
+
+3. **LocalStorage Persistence**
+   - [ ] Save game state to browser localStorage
+   - [ ] Persist: player position, inventory, modified cells
+   - [ ] Load saved state on page load
+   - [ ] Handle missing/corrupted save data gracefully
+
+### Gameplay Requirements
+
+1. **Real-world Movement**
+   - [ ] Player character moves as device moves in physical space
+   - [ ] Map follows player's GPS coordinates
+   - [ ] Cell interactions based on real-world proximity
+
+2. **Session Persistence**
+   - [ ] Game state persists across page reloads
+   - [ ] Player can close and reopen the page without losing progress
+   - [ ] Modified cells remain modified after reload
+   - [ ] Inventory contents preserved
+
+3. **New Game Option**
+   - [ ] Provide UI control to reset game state
+   - [ ] Clear localStorage and reinitialize to default state
+   - [ ] Confirm action to prevent accidental resets
+
+4. **Movement Mode Toggle**
+   - [ ] Allow switching between button-based and geolocation movement
+   - [ ] Implementation options:
+     - Runtime control (on-screen toggle button)
+     - Query string parameter (`?movement=geolocation` vs `?movement=buttons`)
+   - [ ] Display current movement mode to user
+
+### Implementation Plan
+
+#### Step 1: Movement Abstraction (Facade Pattern)
+
+1. **Define Movement Controller Interface**
+
+   Create an interface that abstracts movement input:
+   - `enable()`: Start listening for movement
+   - `disable()`: Stop listening for movement
+   - `onMove(callback)`: Register callback for position updates
+
+2. **Implement Button Controller**
+   - Wrap existing button-based movement
+   - Convert button clicks to lat/lng updates
+   - Maintain current keyboard control support
+
+3. **Implement Geolocation Controller**
+   - Request geolocation permissions
+   - Watch position changes with `navigator.geolocation.watchPosition()`
+   - Convert GPS coords to game coordinates
+   - Handle errors (denied permissions, unavailable, timeout)
+
+4. **Integrate with Game Logic**
+   - Refactor `movePlayer()` to accept lat/lng instead of delta
+   - Movement controller triggers position updates
+   - Game code agnostic to movement source
+
+#### Step 2: LocalStorage Persistence
+
+1. **Define Save State Schema**
+
+   Create a serializable game state structure containing:
+   - Player position (lat/lng)
+   - Inventory contents
+   - Modified cells map
+   - Save timestamp
+
+2. **Implement Save/Load Functions**
+   - `saveGameState()`: serialize state to JSON, write to localStorage
+   - `loadGameState()`: read from localStorage, deserialize, validate
+   - Save on state changes (debounced to avoid excessive writes)
+   - Load on page initialization
+
+3. **State Synchronization**
+   - Save after: inventory changes, cell modifications, movement
+   - Use debouncing to limit localStorage writes
+   - Handle quota exceeded errors
+
+#### Step 3: UI Controls
+
+1. **Movement Mode Selector**
+   - Add toggle button or detect query string
+   - Switch between controllers at runtime
+   - Display current mode indicator
+
+2. **New Game Button**
+   - Add prominent "Reset Game" button
+   - Show confirmation dialog
+   - Clear localStorage and reinitialize state
+
+3. **Status Indicators**
+   - Show geolocation status (enabled/disabled/error)
+   - Display save state timestamp
+   - Indicate when auto-save occurs
+
+### Edge Cases & Error Handling
+
+- **Geolocation unavailable**: Fall back to button controls, show message
+- **Permission denied**: Display instructions, enable button mode
+- **Position timeout**: Retry with exponential backoff
+- **LocalStorage full**: Notify user, attempt cleanup of old data
+- **Corrupted save data**: Log error, start fresh game
+- **Invalid coordinates**: Validate lat/lng ranges, clamp if needed
+
+### Testing Checklist
+
+- [ ] Geolocation updates player position correctly
+- [ ] Button mode still works when selected
+- [ ] State persists after page reload
+- [ ] New game resets all state properly
+- [ ] Movement mode toggle works without errors
+- [ ] Handles geolocation denial gracefully
+- [ ] Works on mobile devices (primary target)
+- [ ] LocalStorage quota not exceeded during normal play
+
+### Acceptance Criteria
+
+- Player can move by physically moving their device (when geolocation enabled)
+- Game state fully persists across browser sessions
+- Player can start a fresh game via UI control
+- Player can switch between button and geolocation modes
+- All gameplay from D3.c still functions correctly
+- Graceful degradation when geolocation unavailable
