@@ -89,14 +89,170 @@ type Cell = { i: number; j: number };
 // Memento stored for modified cells (Flyweight + Memento pattern)
 type CellMemento = { token?: Token | null; timestamp?: number | undefined };
 
-// deno-lint-ignore prefer-const
+/* -----------------------
+   Movement Controller Interface (Facade Pattern)
+   ----------------------- */
+
+interface MovementController {
+  enable(): void;
+  disable(): void;
+  onMove(callback: (lat: number, lng: number) => void): void;
+}
+
+// Button-based movement controller
+class ButtonMovementController implements MovementController {
+  private moveCallback: ((lat: number, lng: number) => void) | null = null;
+  private buttonHandlers: Array<{ button: HTMLElement; handler: () => void }> =
+    [];
+  private keyHandler: ((e: KeyboardEvent) => void) | null = null;
+
+  onMove(callback: (lat: number, lng: number) => void): void {
+    this.moveCallback = callback;
+  }
+
+  enable(): void {
+    if (!this.moveCallback) return;
+
+    // Create movement buttons
+    const movementDiv = document.createElement("div");
+    movementDiv.id = "movementControls";
+
+    const movements = [
+      { label: "↑", di: 1, dj: 0, gridArea: "up" },
+      { label: "↓", di: -1, dj: 0, gridArea: "down" },
+      { label: "→", di: 0, dj: 1, gridArea: "right" },
+      { label: "←", di: 0, dj: -1, gridArea: "left" },
+    ];
+
+    movements.forEach(({ label, di, dj, gridArea }) => {
+      const btn = document.createElement("button");
+      btn.innerText = label;
+      btn.style.gridArea = gridArea;
+      const handler = () => {
+        const newCell = {
+          i: playerCell.i + di,
+          j: playerCell.j + dj,
+        };
+        const newLatLng = cellToLatLng(newCell);
+        this.moveCallback!(newLatLng.lat, newLatLng.lng);
+      };
+      btn.addEventListener("click", handler);
+      this.buttonHandlers.push({ button: btn, handler });
+      movementDiv.append(btn);
+    });
+
+    mapDiv.parentElement?.insertBefore(movementDiv, mapDiv);
+
+    // Keyboard controls
+    this.keyHandler = (e: KeyboardEvent) => {
+      let di = 0, dj = 0;
+      switch (e.key) {
+        case "ArrowUp":
+        case "w":
+        case "W":
+          di = 1;
+          break;
+        case "ArrowDown":
+        case "s":
+        case "S":
+          di = -1;
+          break;
+        case "ArrowRight":
+        case "d":
+        case "D":
+          dj = 1;
+          break;
+        case "ArrowLeft":
+        case "a":
+        case "A":
+          dj = -1;
+          break;
+        default:
+          return;
+      }
+      e.preventDefault();
+      const newCell = { i: playerCell.i + di, j: playerCell.j + dj };
+      const newLatLng = cellToLatLng(newCell);
+      this.moveCallback!(newLatLng.lat, newLatLng.lng);
+    };
+    globalThis.addEventListener("keydown", this.keyHandler);
+  }
+
+  disable(): void {
+    // Remove buttons
+    const movementDiv = document.getElementById("movementControls");
+    if (movementDiv) {
+      movementDiv.remove();
+    }
+    this.buttonHandlers = [];
+
+    // Remove keyboard listener
+    if (this.keyHandler) {
+      globalThis.removeEventListener("keydown", this.keyHandler);
+      this.keyHandler = null;
+    }
+  }
+}
+
+// Geolocation-based movement controller (will be used for mode toggle)
+class _GeolocationMovementController implements MovementController {
+  private moveCallback: ((lat: number, lng: number) => void) | null = null;
+  private watchId: number | null = null;
+
+  onMove(callback: (lat: number, lng: number) => void): void {
+    this.moveCallback = callback;
+  }
+
+  enable(): void {
+    if (!this.moveCallback) return;
+
+    if (!navigator.geolocation) {
+      showNotification("Geolocation not supported by browser");
+      return;
+    }
+
+    this.watchId = navigator.geolocation.watchPosition(
+      (position) => {
+        const { latitude, longitude } = position.coords;
+        this.moveCallback!(latitude, longitude);
+      },
+      (error) => {
+        let message = "Geolocation error";
+        switch (error.code) {
+          case error.PERMISSION_DENIED:
+            message = "Location permission denied";
+            break;
+          case error.POSITION_UNAVAILABLE:
+            message = "Location unavailable";
+            break;
+          case error.TIMEOUT:
+            message = "Location request timeout";
+            break;
+        }
+        showNotification(message);
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 10000,
+        maximumAge: 0,
+      },
+    );
+  }
+
+  disable(): void {
+    if (this.watchId !== null) {
+      navigator.geolocation.clearWatch(this.watchId);
+      this.watchId = null;
+    }
+  }
+}
+
 let playerCell: Cell = latLngToCell(
   CLASSROOM_LATLNG.lat,
   CLASSROOM_LATLNG.lng,
 );
 // Create marker at player position
-// deno-lint-ignore prefer-const
-let playerMarker = leaflet.marker(cellToLatLng(playerCell)).addTo(map);
+const playerMarker = leaflet.marker(cellToLatLng(playerCell)).addTo(map);
 playerMarker.bindTooltip("You are here", { permanent: false });
 let inventory: Token = null;
 
@@ -157,13 +313,12 @@ function isInRange(i: number, j: number, radius = INTERACT_RADIUS) {
   return Math.max(dx, dy) <= radius;
 }
 
-function movePlayer(di: number, dj: number) {
-  // Move player by delta cells
-  playerCell.i += di;
-  playerCell.j += dj;
+function movePlayerToLatLng(lat: number, lng: number) {
+  // Update player cell from lat/lng coordinates
+  playerCell = latLngToCell(lat, lng);
 
   // Update marker position
-  const newLatLng = cellToLatLng(playerCell);
+  const newLatLng = leaflet.latLng(lat, lng);
   playerMarker.setLatLng(newLatLng);
 
   // Center map on player
@@ -449,61 +604,17 @@ function showNotification(text: string) {
    Startup wiring
    ----------------------- */
 
-// Movement controls: D-pad buttons
-const movementDiv = document.createElement("div");
-movementDiv.id = "movementControls";
-
-// Define movement buttons with their properties
-const movementButtons = [
-  { label: "↑", callback: () => movePlayer(1, 0), gridArea: "up" },
-  { label: "↓", callback: () => movePlayer(-1, 0), gridArea: "down" },
-  { label: "→", callback: () => movePlayer(0, 1), gridArea: "right" },
-  { label: "←", callback: () => movePlayer(0, -1), gridArea: "left" },
-];
-
-// Create and append buttons dynamically
-movementButtons.forEach(({ label, callback, gridArea }) => {
-  const btn = document.createElement("button");
-  btn.innerText = label;
-  btn.style.gridArea = gridArea;
-  btn.addEventListener("click", callback);
-  movementDiv.append(btn);
-});
-
-mapDiv.parentElement?.insertBefore(movementDiv, mapDiv);
-
 // Map event listeners
 map.on("moveend", () => drawVisibleGrid());
 
-// Keyboard controls for player movement
-globalThis.addEventListener("keydown", (e: KeyboardEvent) => {
-  switch (e.key) {
-    case "ArrowUp":
-    case "w":
-    case "W":
-      movePlayer(1, 0);
-      e.preventDefault();
-      break;
-    case "ArrowDown":
-    case "s":
-    case "S":
-      movePlayer(-1, 0);
-      e.preventDefault();
-      break;
-    case "ArrowRight":
-    case "d":
-    case "D":
-      movePlayer(0, 1);
-      e.preventDefault();
-      break;
-    case "ArrowLeft":
-    case "a":
-    case "A":
-      movePlayer(0, -1);
-      e.preventDefault();
-      break;
-  }
+// Initialize movement controller (default to button-based)
+const currentController: MovementController = new ButtonMovementController();
+
+currentController.onMove((lat: number, lng: number) => {
+  movePlayerToLatLng(lat, lng);
 });
+
+currentController.enable();
 
 // Initialize game state
 map.panTo(cellToLatLng(playerCell), { animate: false });

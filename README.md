@@ -158,3 +158,44 @@ Notes:
    - Confirmed no unused variables in codebase
    - All declared variables are actively used
    - Code follows strict TypeScript and Deno linting rules
+
+## D3.d - Gameplay Across Real-world Space and Time
+
+### Step 1: Movement Abstraction (Facade Pattern) ✓
+
+**Implementation Complete:**
+
+1. **MovementController Interface** ✓
+   - Defined interface with `enable()`, `disable()`, and `onMove(callback)` methods
+   - Provides clean contract for all movement implementations
+   - Allows game logic to remain agnostic to input source
+
+2. **ButtonMovementController** ✓
+   - Encapsulates existing button and keyboard controls
+   - Creates D-pad buttons dynamically on `enable()`
+   - Supports arrow keys and WASD for keyboard input
+   - Converts cell-based deltas to lat/lng coordinates
+   - Can be cleanly disabled, removing all UI elements and listeners
+
+3. **GeolocationMovementController** ✓
+   - Uses `navigator.geolocation.watchPosition()` for real-time GPS tracking
+   - Handles permission requests and errors gracefully
+   - Provides user-friendly error messages for:
+     - Permission denied
+     - Position unavailable
+     - Timeout errors
+   - High accuracy mode enabled for precise location tracking
+   - Properly cleans up watch on `disable()`
+
+4. **Game Logic Integration** ✓
+   - Refactored to `movePlayerToLatLng(lat, lng)` accepting coordinates directly
+   - Removed cell-delta based movement from core game logic
+   - Movement controllers trigger position updates via callback
+   - Complete separation between input source and game state
+   - Ready for runtime controller switching
+
+**Current State:**
+
+- Button-based movement active by default
+- Geolocation controller ready to be enabled via mode toggle
+- All game functionality preserved and working correctly
