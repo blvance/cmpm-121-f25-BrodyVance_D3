@@ -1,53 +1,104 @@
+/* ===================================
+   CSS Variables & Design Tokens
+   =================================== */
+:root {
+  /* Colors */
+  --color-primary: #e76f51;
+  --color-primary-dark: #d55a3a;
+  --color-secondary: #667eea;
+  --color-secondary-dark: #764ba2;
+  --color-success: #2a9d8f;
+  --color-error: #e76f51;
+  --color-text: #666;
+  --color-white: #fff;
+  --color-black: #000;
+
+  /* Token Colors */
+  --token-2: #3b82f6;
+  --token-4: #10b981;
+  --token-8: #fbbf24;
+  --token-16: #f97316;
+  --token-32: #ef4444;
+  --token-64: #a855f7;
+  --token-128: #8b5cf6;
+  --token-256: #6366f1;
+  --token-512: #ec4899;
+
+  /* Spacing */
+  --space-xs: 4px;
+  --space-sm: 8px;
+  --space-md: 12px;
+  --space-lg: 16px;
+  --space-xl: 20px;
+  --space-2xl: 40px;
+  --space-3xl: 60px;
+
+  /* Typography */
+  --font-size-sm: 13px;
+  --font-size-base: 14px;
+  --font-size-md: 16px;
+  --font-size-lg: 18px;
+  --font-size-xl: 36px;
+  --font-weight-normal: 400;
+  --font-weight-semibold: 600;
+  --font-weight-bold: 700;
+
+  /* Border Radius */
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 16px;
+
+  /* Shadows */
+  --shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.2);
+  --shadow-md: 0 4px 8px rgba(0, 0, 0, 0.2);
+  --shadow-lg: 0 6px 12px rgba(0, 0, 0, 0.3);
+  --shadow-xl: 0 8px 32px rgba(0, 0, 0, 0.3);
+
+  /* Z-index layers */
+  --z-base: 1;
+  --z-controls: 1000;
+  --z-overlay: 10000;
+
+  /* Transitions */
+  --transition-fast: all 0.2s ease;
+}
+
+/* ===================================
+   Layout Components
+   =================================== */
 #controlPanel {
   padding: 1rem;
   display: flex;
-  gap: 8px;
-}
-
-#controlPanel button {
-  padding: 8px 16px;
-  font-size: 14px;
-  cursor: pointer;
-  background: #e76f51;
-  color: white;
-  border: none;
-  border-radius: 4px;
-  transition: all 0.2s ease;
-}
-
-#controlPanel button:hover {
-  background: #d55a3a;
-  transform: translateY(-1px);
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  gap: var(--space-sm);
 }
 
 #statusPanel {
   padding: 1rem;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: var(--space-sm);
 }
 
 #statusIndicators {
   display: flex;
-  gap: 12px;
-  font-size: 13px;
-  color: #666;
+  gap: var(--space-md);
+  font-size: var(--font-size-sm);
+  color: var(--color-text);
 }
 
 #statusIndicators .indicator {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: var(--space-xs);
 }
 
 #statusIndicators .indicator.active {
-  color: #2a9d8f;
-  font-weight: 600;
+  color: var(--color-success);
+  font-weight: var(--font-weight-semibold);
 }
 
 #statusIndicators .indicator.error {
-  color: #e76f51;
+  color: var(--color-error);
 }
 
 #map {
@@ -55,42 +106,70 @@
   height: 80vh;
 }
 
-/* Movement controls styling */
+/* ===================================
+   Buttons
+   =================================== */
+#controlPanel button {
+  padding: var(--space-sm) var(--space-lg);
+  font-size: var(--font-size-base);
+  cursor: pointer;
+  background: var(--color-primary);
+  color: var(--color-white);
+  border: none;
+  border-radius: var(--radius-sm);
+  transition: var(--transition-fast);
+}
+
+#controlPanel button:hover {
+  background: var(--color-primary-dark);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-sm);
+}
+
+/* ===================================
+   Movement Controls
+   =================================== */
 #movementControls {
   position: absolute;
-  bottom: 20px;
-  right: 20px;
-  z-index: 1000;
+  bottom: var(--space-xl);
+  right: var(--space-xl);
+  z-index: var(--z-controls);
   display: grid;
   grid-template-columns: repeat(3, 50px);
-  gap: 4px;
+  gap: var(--space-xs);
   grid-template-areas: ". up ." "left down right";
 }
 
 #movementControls button {
-  padding: 8px;
-  font-size: 18px;
-  font-weight: 600;
+  padding: var(--space-sm);
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-semibold);
   cursor: pointer;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: white;
+  background: linear-gradient(
+    135deg,
+    var(--color-secondary) 0%,
+    var(--color-secondary-dark) 100%
+  );
+  color: var(--color-white);
   border: none;
-  border-radius: 8px;
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
-  transition: all 0.2s ease;
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+  transition: var(--transition-fast);
 }
 
 #movementControls button:hover {
   transform: scale(1.1);
-  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.3);
+  box-shadow: var(--shadow-lg);
 }
 
 #movementControls button:active {
   transform: scale(1);
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+  box-shadow: var(--shadow-md);
 }
 
-/* Victory overlay styling */
+/* ===================================
+   Overlays & Notifications
+   =================================== */
 #victoryOverlay {
   position: fixed;
   top: 0;
@@ -101,84 +180,119 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 10000;
+  z-index: var(--z-overlay);
 }
 
 #victoryOverlay > div {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: white;
-  padding: 40px 60px;
-  border-radius: 16px;
+  background: linear-gradient(
+    135deg,
+    var(--color-secondary) 0%,
+    var(--color-secondary-dark) 100%
+  );
+  color: var(--color-white);
+  padding: var(--space-2xl) var(--space-3xl);
+  border-radius: var(--radius-lg);
   text-align: center;
-  font-size: 36px;
-  font-weight: bold;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+  font-size: var(--font-size-xl);
+  font-weight: var(--font-weight-bold);
+  box-shadow: var(--shadow-xl);
 }
 
-/* Notification styling */
 .notification {
   position: fixed;
   bottom: 10%;
   left: 50%;
   transform: translateX(-50%);
   background: rgba(0, 0, 0, 0.8);
-  color: white;
-  padding: 10px 20px;
-  border-radius: 8px;
-  font-size: 16px;
-  z-index: 1000;
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+  color: var(--color-white);
+  padding: 10px var(--space-xl);
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-md);
+  z-index: var(--z-controls);
+  box-shadow: var(--shadow-md);
 }
 
-/* Cell label styling with color-coded backgrounds */
-.cell-label {
-  background: rgba(255, 255, 255, 0.95) !important;
-  border: none !important;
-  border-radius: 4px !important;
-  padding: 4px 8px !important;
-  font-size: 14px !important;
-  font-weight: bold !important;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2) !important;
+/* ===================================
+   Map Cell Labels
+   =================================== */
+.leaflet-tooltip.cell-label {
+  background: rgba(255, 255, 255, 0.95);
+  border: none;
+  border-radius: var(--radius-sm);
+  padding: var(--space-xs) var(--space-sm);
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-bold);
+  box-shadow: var(--shadow-sm);
 }
 
-.cell-value-2 {
-  background: #3b82f6 !important;
-  color: white !important;
+.leaflet-tooltip.cell-label.cell-value-2 {
+  background: var(--token-2);
+  color: var(--color-white);
 }
-.cell-value-4 {
-  background: #10b981 !important;
-  color: white !important;
+
+.leaflet-tooltip.cell-label.cell-value-4 {
+  background: var(--token-4);
+  color: var(--color-white);
 }
-.cell-value-8 {
-  background: #fbbf24 !important;
-  color: black !important;
+
+.leaflet-tooltip.cell-label.cell-value-8 {
+  background: var(--token-8);
+  color: var(--color-black);
 }
-.cell-value-16 {
-  background: #f97316 !important;
-  color: white !important;
+
+.leaflet-tooltip.cell-label.cell-value-16 {
+  background: var(--token-16);
+  color: var(--color-white);
 }
-.cell-value-32 {
-  background: #ef4444 !important;
-  color: white !important;
+
+.leaflet-tooltip.cell-label.cell-value-32 {
+  background: var(--token-32);
+  color: var(--color-white);
 }
-.cell-value-64 {
-  background: #a855f7 !important;
-  color: white !important;
+
+.leaflet-tooltip.cell-label.cell-value-64 {
+  background: var(--token-64);
+  color: var(--color-white);
 }
-.cell-value-128 {
-  background: #8b5cf6 !important;
-  color: white !important;
+
+.leaflet-tooltip.cell-label.cell-value-128 {
+  background: var(--token-128);
+  color: var(--color-white);
 }
-.cell-value-256 {
-  background: #6366f1 !important;
-  color: white !important;
+
+.leaflet-tooltip.cell-label.cell-value-256 {
+  background: var(--token-256);
+  color: var(--color-white);
 }
-.cell-value-512 {
-  background: #ec4899 !important;
-  color: white !important;
+
+.leaflet-tooltip.cell-label.cell-value-512 {
+  background: var(--token-512);
+  color: var(--color-white);
 }
-.cell-value-1024 {
-  background: linear-gradient(135deg, #fbbf24 0%, #f97316 100%) !important;
-  color: white !important;
-  box-shadow: 0 0 10px rgba(251, 191, 36, 0.5) !important;
+
+.leaflet-tooltip.cell-label.cell-value-1024 {
+  background: linear-gradient(135deg, var(--token-8) 0%, var(--token-16) 100%);
+  color: var(--color-white);
+  box-shadow: 0 0 10px rgba(251, 191, 36, 0.5);
+}
+
+/* ===================================
+   Responsive Design
+   =================================== */
+@media (max-width: 768px) {
+  #movementControls {
+    bottom: var(--space-md);
+    right: var(--space-md);
+    grid-template-columns: repeat(3, 44px);
+  }
+
+  #movementControls button {
+    font-size: var(--font-size-md);
+    padding: var(--space-md);
+  }
+
+  #victoryOverlay > div {
+    padding: var(--space-xl) var(--space-2xl);
+    font-size: 24px;
+  }
 }

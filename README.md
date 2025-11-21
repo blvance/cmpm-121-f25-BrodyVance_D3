@@ -357,3 +357,23 @@ Following code quality improvements, visual polish was added to enhance gameplay
 - Improved UX for quick scanning of available tokens on the map
 - Maintains accessibility with proper contrast ratios
 - Creates visual progression that reinforces crafting goals
+
+### CSS Refactoring
+
+Comprehensive CSS refactoring to improve maintainability and performance:
+
+**Changes:**
+
+- Added CSS custom properties (variables) for colors, spacing, typography, shadows, and z-index
+- Organized file structure with clear section comments (Variables, Layout, Buttons, Controls, Overlays, Map)
+- Removed all `!important` declarations by using `.leaflet-tooltip.cell-label` for proper specificity
+- Extracted shared values into reusable variables (e.g., `--space-sm`, `--color-primary`, `--transition-fast`)
+- Touch-friendly button sizes (44px minimum) for mobile devices
+
+**Benefits:**
+
+- Easier to maintain and update design tokens
+- Reduced code duplication through CSS variables
+- Better performance with GPU-accelerated animations
+- Mobile-friendly responsive design
+- More flexible for future theming and customization
