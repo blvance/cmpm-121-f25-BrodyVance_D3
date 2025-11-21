@@ -23,6 +23,31 @@
 
 #statusPanel {
   padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+#statusIndicators {
+  display: flex;
+  gap: 12px;
+  font-size: 13px;
+  color: #666;
+}
+
+#statusIndicators .indicator {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+#statusIndicators .indicator.active {
+  color: #2a9d8f;
+  font-weight: 600;
+}
+
+#statusIndicators .indicator.error {
+  color: #e76f51;
 }
 
 #map {

@@ -80,7 +80,14 @@ leaflet
   })
   .addTo(map);
 
-statusPanelDiv.innerText = "Inventory: empty";
+statusPanelDiv.innerHTML = `
+  <div id="inventoryDisplay">Inventory: empty</div>
+  <div id="statusIndicators">
+    <span id="movementModeIndicator" class="indicator">🎮 Button Mode</span>
+    <span id="geolocationIndicator" class="indicator">📡 GPS Off</span>
+    <span id="saveIndicator" class="indicator">💾 No saves yet</span>
+  </div>
+`;
 
 /* -----------------------
    State & helpers
@@ -122,6 +129,8 @@ function saveGameState(): void {
     };
 
     localStorage.setItem(SAVE_KEY, JSON.stringify(state));
+    lastSaveTime = Date.now();
+    updateStatusIndicators();
   } catch (error) {
     if (error instanceof Error && error.name === "QuotaExceededError") {
       showNotification("Storage quota exceeded - save failed");
@@ -290,8 +299,8 @@ class ButtonMovementController implements MovementController {
   }
 }
 
-// Geolocation-based movement controller (will be used for mode toggle)
-class _GeolocationMovementController implements MovementController {
+// Geolocation-based movement controller
+class GeolocationMovementController implements MovementController {
   private moveCallback: ((lat: number, lng: number) => void) | null = null;
   private watchId: number | null = null;
 
@@ -304,16 +313,21 @@ class _GeolocationMovementController implements MovementController {
 
     if (!navigator.geolocation) {
       showNotification("Geolocation not supported by browser");
+      geolocationStatus = "error";
+      updateStatusIndicators();
       return;
     }
 
     this.watchId = navigator.geolocation.watchPosition(
       (position) => {
         const { latitude, longitude } = position.coords;
+        geolocationStatus = "active";
+        updateStatusIndicators();
         this.moveCallback!(latitude, longitude);
       },
       (error) => {
         let message = "Geolocation error";
+        geolocationStatus = "error";
         switch (error.code) {
           case error.PERMISSION_DENIED:
             message = "Location permission denied";
@@ -326,6 +340,7 @@ class _GeolocationMovementController implements MovementController {
             break;
         }
         showNotification(message);
+        updateStatusIndicators();
       },
       {
         enableHighAccuracy: true,
@@ -339,6 +354,8 @@ class _GeolocationMovementController implements MovementController {
     if (this.watchId !== null) {
       navigator.geolocation.clearWatch(this.watchId);
       this.watchId = null;
+      geolocationStatus = "disabled";
+      updateStatusIndicators();
     }
   }
 }
@@ -357,6 +374,55 @@ const modifiedCells = new Map<CellKey, CellMemento>();
 
 // Track drawn layers so we can update/remove them efficiently
 const cellLayers = new Map<CellKey, leaflet.Rectangle>();
+
+// Movement mode tracking
+let currentMovementMode: "buttons" | "geolocation" = "buttons";
+let geolocationStatus: "disabled" | "active" | "error" = "disabled";
+let lastSaveTime: number | null = null;
+
+/* -----------------------
+   Status Indicators
+   ----------------------- */
+
+function updateStatusIndicators() {
+  const modeIndicator = document.getElementById("movementModeIndicator");
+  const geoIndicator = document.getElementById("geolocationIndicator");
+  const saveIndicator = document.getElementById("saveIndicator");
+
+  if (modeIndicator) {
+    modeIndicator.textContent = currentMovementMode === "buttons"
+      ? "🎮 Button Mode"
+      : "📍 GPS Mode";
+    modeIndicator.className = "indicator active";
+  }
+
+  if (geoIndicator) {
+    if (geolocationStatus === "active") {
+      geoIndicator.textContent = "📡 GPS Active";
+      geoIndicator.className = "indicator active";
+    } else if (geolocationStatus === "error") {
+      geoIndicator.textContent = "❌ GPS Error";
+      geoIndicator.className = "indicator error";
+    } else {
+      geoIndicator.textContent = "📡 GPS Off";
+      geoIndicator.className = "indicator";
+    }
+  }
+
+  if (saveIndicator && lastSaveTime) {
+    const elapsed = Math.floor((Date.now() - lastSaveTime) / 1000);
+    if (elapsed < 5) {
+      saveIndicator.textContent = "💾 Saved just now";
+      saveIndicator.className = "indicator active";
+    } else if (elapsed < 60) {
+      saveIndicator.textContent = `💾 Saved ${elapsed}s ago`;
+      saveIndicator.className = "indicator";
+    } else {
+      saveIndicator.textContent = `💾 Saved ${Math.floor(elapsed / 60)}m ago`;
+      saveIndicator.className = "indicator";
+    }
+  }
+}
 
 /* -----------------------
    Coordinate & token logic
@@ -512,9 +578,12 @@ function drawOrUpdateCell(cell: Cell) {
 
 // Inventory UI
 function updateInventoryUI() {
-  statusPanelDiv.innerText = inventory
-    ? `Inventory: ${inventory.value}`
-    : "Inventory: empty";
+  const inventoryDisplay = document.getElementById("inventoryDisplay");
+  if (inventoryDisplay) {
+    inventoryDisplay.innerText = inventory
+      ? `Inventory: ${inventory.value}`
+      : "Inventory: empty";
+  }
 }
 
 // Layer management
@@ -717,14 +786,63 @@ if (stateLoaded) {
   map.setView(startLatLng, GAMEPLAY_ZOOM_LEVEL);
 }
 
-// Initialize movement controller (default to button-based)
-const currentController: MovementController = new ButtonMovementController();
+// Initialize movement controllers
+const buttonController = new ButtonMovementController();
+const geoController = new GeolocationMovementController();
+let activeController: MovementController = buttonController;
 
-currentController.onMove((lat: number, lng: number) => {
+// Set up movement callback for both controllers
+buttonController.onMove((lat: number, lng: number) => {
   movePlayerToLatLng(lat, lng);
 });
 
-currentController.enable();
+geoController.onMove((lat: number, lng: number) => {
+  movePlayerToLatLng(lat, lng);
+});
+
+// Function to switch between movement modes
+function switchMovementMode(mode: "buttons" | "geolocation") {
+  if (mode === currentMovementMode) return;
+
+  // Disable current controller
+  activeController.disable();
+
+  // Switch to new controller
+  if (mode === "geolocation") {
+    activeController = geoController;
+    currentMovementMode = "geolocation";
+  } else {
+    activeController = buttonController;
+    currentMovementMode = "buttons";
+    geolocationStatus = "disabled";
+  }
+
+  // Enable new controller
+  activeController.enable();
+  updateStatusIndicators();
+}
+
+// Check for query string parameter to set initial mode
+const urlParams = new URLSearchParams(globalThis.location.search);
+const movementParam = urlParams.get("movement");
+if (movementParam === "geolocation") {
+  currentMovementMode = "geolocation";
+  activeController = geoController;
+} else {
+  currentMovementMode = "buttons";
+  activeController = buttonController;
+}
+
+activeController.enable();
+
+// Create movement mode toggle button
+const toggleModeBtn = document.createElement("button");
+toggleModeBtn.innerText = "📍 Toggle GPS";
+toggleModeBtn.addEventListener("click", () => {
+  const newMode = currentMovementMode === "buttons" ? "geolocation" : "buttons";
+  switchMovementMode(newMode);
+});
+controlPanelDiv.append(toggleModeBtn);
 
 // Create "New Game" button
 const newGameBtn = document.createElement("button");
@@ -741,3 +859,7 @@ controlPanelDiv.append(newGameBtn);
 map.panTo(cellToLatLng(playerCell), { animate: false });
 drawVisibleGrid();
 updateInventoryUI();
+updateStatusIndicators();
+
+// Update save indicator periodically
+setInterval(updateStatusIndicators, 10000); // Update every 10 seconds

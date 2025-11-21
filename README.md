@@ -240,3 +240,44 @@ Notes:
 - State survives page reloads and browser restarts
 - Auto-save triggers efficiently without performance impact
 - New Game functionality tested and working
+
+### Step 3: UI Controls ✓
+
+**Implementation Complete:**
+
+1. **Movement Mode Toggle** ✓
+   - Added " Toggle GPS" button to control panel
+   - Runtime switching between button-based and geolocation movement
+   - Query string support: `?movement=geolocation` to start in GPS mode
+   - Clean controller lifecycle management (proper enable/disable)
+
+2. **Status Indicators** ✓
+   - **Movement Mode Indicator**: Shows current mode (Button Mode / GPS Mode)
+   - **Geolocation Status**: Real-time GPS state (GPS Off / GPS Active / GPS Error)
+   - **Save Timestamp**: Displays last save time with relative formatting
+     - "Saved just now" (< 5 seconds)
+     - "Saved Xs ago" (< 60 seconds)
+     - "Saved Xm ago" (> 60 seconds)
+   - Auto-updates every 10 seconds for freshness
+   - Color-coded indicators (green for active, red for errors)
+
+3. **Controller Architecture** ✓
+   - Removed underscore prefix from `GeolocationMovementController` (now actively used)
+   - Both controllers instantiated at startup and ready to switch
+   - Shared movement callback ensures consistent game behavior
+   - Status indicators update automatically on all state changes
+
+4. **Error Handling** ✓
+   - Geolocation not supported: Shows error notification and indicator
+   - Permission denied: Updates status to error state with message
+   - Position unavailable: Displays appropriate error message
+   - Timeout errors: Handles gracefully with user feedback
+   - All geolocation errors reflected in real-time UI
+
+**Current State:**
+
+- Complete D3.d implementation finished
+- Movement mode toggle working between buttons and GPS
+- Real-time status indicators providing user feedback
+- Geolocation integration fully functional with error handling
+- All gameplay features from previous steps preserved
